@@ -43,8 +43,8 @@ else:
     print("ℹ GCS disabled - running in local dev mode")
 
 
-@app.get("/")
-async def root():
+@app.get("/health")
+async def health():
     """Health check endpoint"""
     return {
         "status": "ok",
