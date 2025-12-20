@@ -70,7 +70,8 @@ gcloud app deploy
 
 ### Create Bucket
 ```bash
-gsutil mb -l us-central1 gs://acidrain-events-raw
+# Use 'us' multi-region for better redundancy
+gsutil mb -l us gs://acidrain-events-raw
 ```
 
 ### File Structure

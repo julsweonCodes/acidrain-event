@@ -80,9 +80,21 @@ class AcidRainGame {
             this.restartGame();
         });
         
+        // Canvas click to focus
+        this.canvas.addEventListener('click', () => {
+            if (this.state === 'running') {
+                this.canvas.focus();
+            }
+        });
+        
         // Keyboard input
         document.addEventListener('keydown', (e) => {
             if (this.state !== 'running') return;
+            
+            // Refocus canvas if needed
+            if (document.activeElement !== this.canvas) {
+                this.canvas.focus();
+            }
             
             // Handle letter keys
             if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
@@ -126,12 +138,20 @@ class AcidRainGame {
         this.currentWordIndex = 0;
         console.log(`[Game] ${this.availableWords.length} unique words available`);
         
-        // Hide start screen
-        this.startScreen.classList.add('hidden');
-        this.gameOverScreen.classList.add('hidden');
+        // Hide start and game over screens
+        this.startScreen.classList.remove('show');
+        this.gameOverScreen.classList.remove('show');
+        
+        // Show game UI elements
+        this.canvas.classList.add('active');
+        document.getElementById('gameUI').classList.add('active');
+        document.getElementById('inputDisplay').classList.add('active');
         
         // Update UI
         this.updateUI();
+        
+        // Focus canvas to capture keyboard input
+        this.canvas.focus();
         
         // Track game start
         tracker.trackGameStart();
@@ -425,23 +445,31 @@ class AcidRainGame {
         if (reason === 'completed') {
             titleEl.textContent = '🎉 Congratulations!';
             titleEl.style.color = '#00ff00';
-            alert(`🎉 Congratulations! You completed all words!\nYour score: ${this.score}`);
         } else if (reason === 'timeout') {
             titleEl.textContent = '⏰ Time\'s Up!';
             titleEl.style.color = '#ff9500';
-            alert(`⏰ Time's Up! Game has ended.\nYour score: ${this.score}`);
         } else {
             titleEl.textContent = '💀 Game Over';
             titleEl.style.color = '#ff5555';
-            alert(`💀 Game Over! Too many missed words.\nYour score: ${this.score}`);
         }
         
         // Update stats panel
         document.getElementById('finalScore').textContent = this.score;
         document.getElementById('finalTyped').textContent = this.wordsTyped;
         document.getElementById('finalMissed').textContent = this.wordsMissed;
-        document.getElementById('restartButton').textContent = '🔄 Play Again';
-        this.gameOverScreen.classList.remove('hidden');
+        
+        console.log('[Game] Showing game over screen');
+        console.log('[Game] Score:', this.score, 'Typed:', this.wordsTyped, 'Missed:', this.wordsMissed);
+        
+        // Hide game UI
+        this.canvas.classList.remove('active');
+        document.getElementById('gameUI').classList.remove('active');
+        document.getElementById('inputDisplay').classList.remove('active');
+        
+        // Show game over screen
+        this.gameOverScreen.classList.add('show');
+        
+        console.log('[Game] Game over screen should now be visible');
     }
     
     /**

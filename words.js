@@ -43,7 +43,7 @@ const WORD_LIST = [
     "kaput", "blitzkrieg", "fahrenheit", "rucksack", "sauerkraut",
     
     // French loanwords
-    "bourgeoisie", "entrepreneur", "renaissance", "rendez-vous", "repertoire",
+    "bourgeoisie", "entrepreneur", "renaissance", "rendezvous", "repertoire",
     "chauffeur", "silhouette", "questionnaire", "connoisseur", "surveillance",
     "bureaucracy", "ensemble", "critique", "sabotage", "camouflage",
     
@@ -69,15 +69,15 @@ const WORD_LIST = [
     "Tennessee", "Connecticut", "acquaintance", "bureaucratic", "conscientious",
     "fluorescent", "incandescent", "phosphorescent", "acknowledgment", "accidentally",
     
-    // Scientific/Medical terms
-    "chromosome", "mitochondria", "photosynthesis", "glycolysis", "homeostasis",
-    "neurotransmitter", "deoxyribonucleic", "electromagnetic", "thermodynamics", "equilibrium",
+    // Scientific/Medical term
+    "chromosome", "mitochondrion", "photosynthesis", "glycolysis", "homeostasis",
+    "neurotransmitter", "deoxyribonucleic", "electromagnetic", "thermodynamic", "equilibrium",
     "metabolism", "pharmaceutical", "diagnosis", "prognosis", "synthesis",
     
-    // Compound challenging words
+    // Compound challenging word
     "juxtaposition", "onomatopoeia", "antidisestablishmentarianism", "pseudopseudohypoparathyroidism",
     "floccinaucinihilipilification", "hippopotomonstrosesquippedaliophobia", "pneumonoultramicroscopicsilicovolcanoconiosis",
-    "supercalifragilisticexpialidocious", "incomprehensibilities", "counterrevolutionary"
+    "supercalifragilisticexpialidocious", "incomprehensibility", "counterrevolutionary"
 ];
 
 /**

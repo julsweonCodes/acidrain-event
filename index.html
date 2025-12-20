@@ -97,19 +97,57 @@
         }
 
         #startScreen, #gameOverScreen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+        }
+
+        #startScreen.show {
+            display: flex;
+        }
+
+        #gameOverScreen.show {
+            display: flex;
+        }
+
+        #startScreen .content,
+        #gameOverScreen .content {
+            background: rgba(103, 126, 234, 0.2);
             padding: 40px;
             border-radius: 15px;
             text-align: center;
             min-width: 400px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
         }
 
-        #gameOverScreen {
+        #gameUI,
+        #gameCanvas,
+        #inputDisplay {
             display: none;
+        }
+
+        #gameUI.active,
+        #gameCanvas.active,
+        #inputDisplay.active {
+            display: block;
+        }
+
+        body.game-over #gameUI,
+        body.game-over #gameCanvas,
+        body.game-over #inputDisplay {
+            display: none !important;
+        }
+
+        body.game-over #gameOverScreen {
+            display: flex !important;
         }
 
         .title {
@@ -170,6 +208,11 @@
             display: none !important;
         }
 
+        .game-hidden {
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
         .debug-info {
             position: fixed;
             bottom: 10px;
@@ -184,35 +227,39 @@
 </head>
 <body>
     <div class="container">
-        <div id="startScreen">
-            <h1 class="title">🌧️ Acid Rain</h1>
-            <p class="subtitle">Type the falling words before they reach the ground!</p>
-            <button class="button" id="startButton">Start Game</button>
+        <div id="startScreen" class="show">
+            <div class="content">
+                <h1 class="title">🌧️ Acid Rain</h1>
+                <p class="subtitle">Type the falling words before they reach the ground!</p>
+                <button class="button" id="startButton">Start Game</button>
+            </div>
         </div>
 
         <div id="gameOverScreen">
-            <h1 class="title" id="gameOverTitle">Game Over</h1>
-            
-            <div style="margin: 30px 0;">
-                <div style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">YOUR SCORE</div>
-                <div class="final-score" id="finalScore">0</div>
-            </div>
-            
-            <div class="stats-panel">
-                <div class="stat-item correct">
-                    <div class="stat-item-label">✓ Correct</div>
-                    <div class="stat-item-value" id="finalTyped">0</div>
+            <div class="content">
+                <h1 class="title" id="gameOverTitle">Game Over</h1>
+                
+                <div style="margin: 30px 0;">
+                    <div style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">YOUR SCORE</div>
+                    <div class="final-score" id="finalScore">0</div>
                 </div>
-                <div class="stat-item missed">
-                    <div class="stat-item-label">✗ Missed</div>
-                    <div class="stat-item-value" id="finalMissed">0</div>
+                
+                <div class="stats-panel">
+                    <div class="stat-item correct">
+                        <div class="stat-item-label">✓ Correct</div>
+                        <div class="stat-item-value" id="finalTyped">0</div>
+                    </div>
+                    <div class="stat-item missed">
+                        <div class="stat-item-label">✗ Missed</div>
+                        <div class="stat-item-value" id="finalMissed">0</div>
+                    </div>
                 </div>
+                
+                <button class="button" id="restartButton" style="margin-top: 30px;">🔄 Play Again</button>
             </div>
-            
-            <button class="button" id="restartButton" style="margin-top: 30px;">🔄 Play Again</button>
         </div>
 
-        <div class="ui">
+        <div class="ui" id="gameUI">
             <div class="score-panel">
                 <div class="stat">
                     <div class="stat-label">Score</div>
@@ -233,7 +280,7 @@
             </div>
         </div>
 
-        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <canvas id="gameCanvas" width="800" height="600" tabindex="0"></canvas>
 
         <div id="inputDisplay"></div>
 
