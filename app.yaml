@@ -1,0 +1,13 @@
+runtime: python312
+entrypoint: uvicorn main:app --host 0.0.0.0 --port $PORT
+
+instance_class: F2
+
+env_variables:
+  GCS_BUCKET_NAME: "acidrain-events-raw"
+  ENABLE_GCS: "true"
+
+automatic_scaling:
+  min_instances: 0
+  max_instances: 5
+  target_cpu_utilization: 0.65

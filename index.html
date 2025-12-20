@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acid Rain Typing Game - Event Generator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            text-align: center;
+        }
+
+        #gameCanvas {
+            background: rgba(0, 0, 0, 0.3);
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 10px;
+            display: block;
+            margin: 20px auto;
+        }
+
+        .ui {
+            margin: 20px 0;
+        }
+
+        .score-panel {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .stat {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        #inputDisplay {
+            font-size: 28px;
+            min-height: 40px;
+            letter-spacing: 2px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 15px 30px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+
+        .button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid white;
+            color: white;
+            padding: 15px 40px;
+            font-size: 18px;
+            font-family: 'Courier New', monospace;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #startScreen, #gameOverScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            min-width: 400px;
+        }
+
+        #gameOverScreen {
+            display: none;
+        }
+
+        .title {
+            font-size: 36px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            font-size: 14px;
+            opacity: 0.7;
+            margin-bottom: 30px;
+        }
+
+        .final-score {
+            font-size: 48px;
+            margin: 20px 0;
+            color: #ffd700;
+        }
+
+        .stats-panel {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin: 20px 0;
+            font-size: 16px;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px 25px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-item-label {
+            font-size: 12px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .stat-item-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .stat-item.correct .stat-item-value {
+            color: #00ff00;
+        }
+
+        .stat-item.missed .stat-item-value {
+            color: #ff5555;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .debug-info {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="startScreen">
+            <h1 class="title">🌧️ Acid Rain</h1>
+            <p class="subtitle">Type the falling words before they reach the ground!</p>
+            <button class="button" id="startButton">Start Game</button>
+        </div>
+
+        <div id="gameOverScreen">
+            <h1 class="title" id="gameOverTitle">Game Over</h1>
+            
+            <div style="margin: 30px 0;">
+                <div style="font-size: 14px; opacity: 0.8; margin-bottom: 10px;">YOUR SCORE</div>
+                <div class="final-score" id="finalScore">0</div>
+            </div>
+            
+            <div class="stats-panel">
+                <div class="stat-item correct">
+                    <div class="stat-item-label">✓ Correct</div>
+                    <div class="stat-item-value" id="finalTyped">0</div>
+                </div>
+                <div class="stat-item missed">
+                    <div class="stat-item-label">✗ Missed</div>
+                    <div class="stat-item-value" id="finalMissed">0</div>
+                </div>
+            </div>
+            
+            <button class="button" id="restartButton" style="margin-top: 30px;">🔄 Play Again</button>
+        </div>
+
+        <div class="ui">
+            <div class="score-panel">
+                <div class="stat">
+                    <div class="stat-label">Score</div>
+                    <div class="stat-value" id="scoreDisplay">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Time</div>
+                    <div class="stat-value" id="timerDisplay">90</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Speed</div>
+                    <div class="stat-value" id="speedDisplay">1.0x</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Missed</div>
+                    <div class="stat-value" id="missedDisplay">0</div>
+                </div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+        <div id="inputDisplay"></div>
+
+        <div class="debug-info" id="debugInfo">
+            <div>Session: <span id="debugSession">...</span></div>
+            <div>Events buffered: <span id="debugBuffer">0</span></div>
+            <div>Events sent: <span id="debugSent">0</span></div>
+        </div>
+    </div>
+
+    <!-- Load order is important: words → tracker → game -->
+    <script src="words.js"></script>
+    <script src="tracker.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
