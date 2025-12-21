@@ -1,0 +1,30 @@
+{
+  "comment": "Example Cloud Scheduler HTTP POST payload for Dataproc Serverless",
+  "comment2": "Replace PROJECT_ID, BUCKET, REGION with your values",
+  "comment3": "Use with: gcloud scheduler jobs create http acidrain-batch-processor ...",
+  
+  "pysparkBatch": {
+    "mainPythonFileUri": "gs://acidrain-events-raw/spark_jobs/process_batch.py",
+    "pythonFileUris": [
+      "gs://acidrain-events-raw/spark_jobs/config.py",
+      "gs://acidrain-events-raw/spark_jobs/schemas.py",
+      "gs://acidrain-events-raw/spark_jobs/watermark.py"
+    ],
+    "jarFileUris": [
+      "gs://spark-lib/bigquery/spark-bigquery-with-dependencies_2.12-0.32.0.jar"
+    ]
+  },
+  "runtimeConfig": {
+    "properties": {
+      "spark.executor.memory": "4g",
+      "spark.executor.cores": "2",
+      "spark.dynamicAllocation.enabled": "true"
+    }
+  },
+  "environmentConfig": {
+    "executionConfig": {
+      "serviceAccount": "dataproc-sa@PROJECT_ID.iam.gserviceaccount.com",
+      "subnetworkUri": "projects/PROJECT_ID/regions/REGION/subnetworks/default"
+    }
+  }
+}

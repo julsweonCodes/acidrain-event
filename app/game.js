@@ -408,8 +408,11 @@ class AcidRainGame {
             const matchedWord = this.fallingWords[matchIndex];
             const timeToType = Date.now() - this.wordStartTime;
             
+            // Get all visible words for context
+            const visibleWords = this.fallingWords.map(w => w.word);
+            
             // Track correct typing
-            tracker.trackWordTypedCorrect(matchedWord.word, timeToType, this.currentSpeed);
+            tracker.trackWordTypedCorrect(matchedWord.word, timeToType, this.currentSpeed, visibleWords);
             
             // Update score (longer words = more points)
             const points = matchedWord.word.length * Math.floor(this.currentSpeed);
@@ -419,9 +422,21 @@ class AcidRainGame {
             // Remove word
             this.fallingWords.splice(matchIndex, 1);
         } else {
-            // Incorrect
+            // Incorrect - find closest match for partial completion metrics
             const availableWords = this.fallingWords.map(w => w.word);
-            tracker.trackWordTypedIncorrect(this.currentInput, availableWords);
+            const closestMatch = this.findClosestMatch(this.currentInput, availableWords);
+            
+            console.log('[Game] Incorrect attempt:', {
+                attempted: this.currentInput,
+                closestMatch: closestMatch,
+                availableWords: availableWords.length
+            });
+            
+            tracker.trackWordTypedIncorrect(
+                this.currentInput,
+                availableWords,
+                closestMatch
+            );
         }
         
         // Clear input
@@ -429,6 +444,53 @@ class AcidRainGame {
         this.hiddenInput.value = '';
         this.wordStartTime = null;
         this.updateInputDisplay();
+    }
+    
+    /**
+     * Find closest matching word and calculate similarity
+     * @param {string} attempt - User's input
+     * @param {string[]} words - Available words
+     * @returns {object} Closest match with metrics
+     */
+    findClosestMatch(attempt, words) {
+        if (words.length === 0) return null;
+        
+        const attemptLower = attempt.toLowerCase();
+        let bestMatch = {
+            word: words[0],
+            chars_matched: 0,
+            match_ratio: 0
+        };
+        
+        for (const word of words) {
+            const wordLower = word.toLowerCase();
+            
+            // Count matching characters from start
+            let charsMatched = 0;
+            const minLen = Math.min(attemptLower.length, wordLower.length);
+            for (let i = 0; i < minLen; i++) {
+                if (attemptLower[i] === wordLower[i]) {
+                    charsMatched++;
+                } else {
+                    break;
+                }
+            }
+            
+            // Calculate match ratio
+            const matchRatio = charsMatched / wordLower.length;
+            
+            // Update best match if this is better
+            if (charsMatched > bestMatch.chars_matched || 
+                (charsMatched === bestMatch.chars_matched && matchRatio > bestMatch.match_ratio)) {
+                bestMatch = {
+                    word: word,
+                    chars_matched: charsMatched,
+                    match_ratio: parseFloat(matchRatio.toFixed(2))
+                };
+            }
+        }
+        
+        return bestMatch;
     }
     
     /**
