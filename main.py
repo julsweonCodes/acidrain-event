@@ -1,6 +1,6 @@
 """
 FastAPI backend for Acid Rain event ingestion
-Receives events from frontend and writes to GCS
+Receives events from frontend and writes to GCS as gzip-compressed JSONL
 """
 
 from fastapi import FastAPI, HTTPException, Request
@@ -11,6 +11,7 @@ from google.cloud import storage
 from datetime import datetime
 from typing import List, Dict, Any
 import json
+import gzip
 import os
 import uuid
 
@@ -26,6 +27,7 @@ app.add_middleware(
 )
 
 # GCS Configuration
+# Bucket directory structure: gs://bucket-name/raw/YYYY/MM/DD/events_<uuid>.json.gz
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "acidrain-events-raw")
 ENABLE_GCS = os.getenv("ENABLE_GCS", "false").lower() == "true"
 
@@ -34,13 +36,8 @@ if ENABLE_GCS:
     try:
         storage_client = storage.Client()
         bucket = storage_client.bucket(GCS_BUCKET_NAME)
-        print(f"✓ Connected to GCS bucket: {GCS_BUCKET_NAME}")
     except Exception as e:
-        print(f"⚠ GCS connection failed: {e}")
-        print("  Running in local mode (events logged only)")
         ENABLE_GCS = False
-else:
-    print("ℹ GCS disabled - running in local dev mode")
 
 
 @app.get("/health")
@@ -57,62 +54,54 @@ async def health():
 @app.post("/events")
 async def ingest_events(events: List[Dict[str, Any]], request: Request):
     """
-    Receive batch of events from frontend and write to GCS
+    Stateless ingestion endpoint - receives events and writes to GCS
     
-    Events are written as newline-delimited JSON (NDJSON) files
-    Format: gs://bucket/events/YYYY/MM/DD/HH/{batch_id}.json
+    Writes: gs://{bucket}/raw/YYYY/MM/DD/events_{uuid}.json.gz
+    Format: gzip-compressed newline-delimited JSON (.jsonl)
+    
+    No validation, transformation, or deduplication - append-only immutable storage
     """
     
     if not events:
         raise HTTPException(status_code=400, detail="No events provided")
     
-    # Extract geographic info from Cloud Run headers (or fallback to unknown)
-    # Cloud Run automatically provides these headers from App Engine infrastructure
+    # Extract geographic info from Cloud Run headers
     country = request.headers.get("X-Appengine-Country", "UNKNOWN")
     region = request.headers.get("X-Appengine-Region", "UNKNOWN")
     city = request.headers.get("X-Appengine-City", "UNKNOWN")
     
-    # Enrich each event with geographic data
+    # Enrich web_context with country data (session-level attribute)
     for event in events:
-        # Validate event structure
-        if not all(k in event for k in ["event_id", "session_id", "event_type", "timestamp"]):
-            raise HTTPException(
-                status_code=400, 
-                detail="Invalid event format - missing required fields"
-            )
-        
-        # Add country to web_context (collected once per session on frontend)
         if "web_context" not in event:
             event["web_context"] = {}
-        
         event["web_context"]["country"] = country
         event["web_context"]["region"] = region
         event["web_context"]["city"] = city
     
-    # Log events to console (always, for debugging)
-    print(f"[Events] Received {len(events)} events from {country}/{region}/{city}")
-    for event in events:
-        print(f"  - {event['event_type']}: {event.get('metadata', {})}")
-    
     # Write to GCS if enabled
     if ENABLE_GCS:
         try:
-            # Generate filename with date partitioning
+            # UTC-based date partitioning
             now = datetime.utcnow()
-            batch_id = str(uuid.uuid4())
-            blob_name = f"events/{now.year}/{now.month:02d}/{now.day:02d}/{now.hour:02d}/{batch_id}.json"
+            file_uuid = str(uuid.uuid4())
+            blob_name = f"raw/{now.year}/{now.month:02d}/{now.day:02d}/events_{file_uuid}.json.gz"
             
-            # Write as newline-delimited JSON (one event per line)
+            # Serialize as newline-delimited JSON
             ndjson_content = "\n".join(json.dumps(event) for event in events)
             
-            # Upload to GCS
+            # Compress with gzip at write time (in-memory compression)
+            compressed_content = gzip.compress(ndjson_content.encode('utf-8'))
+            compressed_size_kb = len(compressed_content) / 1024
+            
+            # Upload compressed file to GCS (immutable, append-only)
             blob = bucket.blob(blob_name)
             blob.upload_from_string(
-                ndjson_content,
-                content_type="application/x-ndjson"
+                compressed_content,
+                content_type="application/gzip"
             )
             
-            print(f"[GCS] ✓ Uploaded to gs://{GCS_BUCKET_NAME}/{blob_name}")
+            # Log upload details
+            print(f"Uploaded: {blob_name} ({compressed_size_kb:.2f} KB)")
             
             return {
                 "status": "success",
@@ -121,17 +110,14 @@ async def ingest_events(events: List[Dict[str, Any]], request: Request):
             }
         
         except Exception as e:
-            print(f"[GCS] ✗ Upload failed: {e}")
-            # Don't fail the request - events are still logged
             return {
                 "status": "partial_success",
                 "events_received": len(events),
-                "error": "GCS upload failed, events logged",
-                "details": str(e)
+                "error": "GCS upload failed"
             }
     
     else:
-        # Local dev mode - just acknowledge receipt
+        # Local dev mode - acknowledge receipt only
         return {
             "status": "success",
             "events_received": len(events),
@@ -142,7 +128,6 @@ async def ingest_events(events: List[Dict[str, Any]], request: Request):
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Catch-all exception handler"""
-    print(f"[Error] {exc}")
     return JSONResponse(
         status_code=500,
         content={"status": "error", "detail": str(exc)}
