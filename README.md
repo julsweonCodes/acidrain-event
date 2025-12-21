@@ -107,8 +107,7 @@ gsutil iam ch serviceAccount:YOUR-SA@PROJECT.iam.gserviceaccount.com:objectCreat
     "timezone": "Asia/Seoul",
     "language": "en-US",
     "country": "KR",
-    "region": "11",
-    "city": "seoul"
+    "region": "11"
   }
 }
 ```
@@ -117,7 +116,7 @@ gsutil iam ch serviceAccount:YOUR-SA@PROJECT.iam.gserviceaccount.com:objectCreat
 `web_context` is collected **once per session** (browser page load) and reused for all events:
 - `timezone`: Browser timezone (e.g., `Asia/Seoul`)
 - `language`: Browser language (e.g., `en-US`, `ko-KR`)
-- `country`, `region`, `city`: Added by backend from Cloud Run headers
+- `country`, `region`: Added by backend from Cloud Run headers
 
 **Design Principle**: Enables session-level enrichment in Spark, reduces data duplication
 

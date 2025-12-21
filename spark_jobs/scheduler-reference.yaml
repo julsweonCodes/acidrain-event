@@ -1,0 +1,43 @@
+# ⚠️  REFERENCE DOCUMENTATION ONLY - NOT DIRECTLY USABLE
+#
+# This file illustrates the Cloud Scheduler configuration concept.
+# Cloud Scheduler does NOT natively consume YAML files like this.
+#
+# To actually create the scheduler job, you need to:
+# 1. Use gcloud CLI with specific flags
+# 2. Provide Dataproc batch API POST payload
+# 3. Configure service account and OAuth
+#
+# See README.md "Manual Scheduler Setup" section for actual commands.
+#
+# This file exists for documentation purposes only.
+
+# Conceptual Configuration
+name: acidrain-batch-processor
+schedule: "0 */6 * * *"  # Every 6 hours at :00
+timezone: UTC
+description: "Process Acid Rain events from GCS raw zone to BigQuery"
+
+# What this would trigger (conceptually)
+target:
+  type: dataproc_serverless
+  region: us-central1
+  
+  job:
+    pyspark:
+      # ONLY scheduler entrypoint
+      main_python_file: gs://acidrain-events-raw/spark_jobs/process_batch.py
+      
+      # Dependencies (imported by main)
+      python_file_uris:
+        - gs://acidrain-events-raw/spark_jobs/config.py
+        - gs://acidrain-events-raw/spark_jobs/schemas.py
+        - gs://acidrain-events-raw/spark_jobs/watermark.py
+      
+      properties:
+        spark.executor.memory: 4g
+        spark.executor.cores: 2
+        spark.dynamicAllocation.enabled: true
+
+# Actual Implementation Required:
+# See scheduler-example.json for POST payload format

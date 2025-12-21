@@ -120,12 +120,16 @@ class AnalyticsTracker {
      * @param {string} word - The word typed
      * @param {number} timeToTypeMs - Time taken to type the word
      * @param {number} currentSpeed - Current game speed
+     * @param {string[]} visibleWords - All words visible on screen when typed
      */
-    trackWordTypedCorrect(word, timeToTypeMs, currentSpeed) {
+    trackWordTypedCorrect(word, timeToType, currentSpeed, visibleWords = []) {
         this.trackEvent('word_typed_correct', {
             word,
-            time_to_type_ms: timeToTypeMs,
-            current_speed: currentSpeed
+            attempted: word,  // What user typed (same as word for correct attempts)
+            time_to_type_ms: timeToType,
+            current_speed: currentSpeed,
+            visible_words: visibleWords,
+            visible_words_count: visibleWords.length
         });
     }
     
@@ -133,11 +137,24 @@ class AnalyticsTracker {
      * Track incorrect typing attempt
      * @param {string} attempted - What the user typed
      * @param {string[]} availableWords - Words currently on screen
+     * @param {object} closestMatch - Best matching word with metrics
      */
-    trackWordTypedIncorrect(attempted, availableWords) {
+    trackWordTypedIncorrect(attempted, availableWords, closestMatch = null) {
+        console.log('[Tracker] word_typed_incorrect:', {
+            closestMatch: closestMatch,
+            hasWord: closestMatch ? true : false,
+            word: closestMatch ? closestMatch.word : 'null',
+            chars: closestMatch ? closestMatch.chars_matched : 0,
+            ratio: closestMatch ? closestMatch.match_ratio : 0
+        });
+        
         this.trackEvent('word_typed_incorrect', {
             attempted,
-            available_words: availableWords
+            visible_words: availableWords,
+            visible_words_count: availableWords.length,
+            closest_match: closestMatch ? closestMatch.word : null,
+            chars_matched: closestMatch ? closestMatch.chars_matched : 0,
+            match_ratio: closestMatch ? closestMatch.match_ratio : 0
         });
     }
     
