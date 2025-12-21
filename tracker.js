@@ -15,6 +15,14 @@ class AnalyticsTracker {
         // Generate session ID once per page load
         this.sessionId = this.generateUUID();
         
+        // Web context - collected ONCE at session start, reused for all events
+        // This enables session-level enrichment in Spark and reduces data duplication
+        this.webContext = {
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            language: navigator.language,
+            // country will be added by backend from Cloud Run headers or IP
+        };
+        
         // Event buffer
         this.eventBuffer = [];
         this.maxBufferSize = 20;
@@ -43,6 +51,7 @@ class AnalyticsTracker {
         this.attachActivityListeners();
         
         console.log(`[Tracker] Initialized with session_id: ${this.sessionId}`);
+        console.log(`[Tracker] Web context:`, this.webContext);
     }
     
     /**
@@ -70,10 +79,12 @@ class AnalyticsTracker {
             timestamp: new Date().toISOString(),
             metadata: {
                 ...metadata,
-                // Add web-level context
+                // Add basic web context
                 page_url: window.location.href,
                 user_agent: navigator.userAgent,
-            }
+            },
+            // Web context - collected once at session start, same for all events
+            web_context: this.webContext
         };
         
         // Add to buffer

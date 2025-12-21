@@ -12,6 +12,9 @@ class AcidRainGame {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         
+        // Language setting
+        this.currentLanguage = 'en'; // 'en' or 'ko'
+        
         // Game state
         this.state = 'idle'; // idle, running, game_over
         this.score = 0;
@@ -56,6 +59,14 @@ class AcidRainGame {
         this.missedDisplay = document.getElementById('missedDisplay');
         this.inputDisplay = document.getElementById('inputDisplay');
         
+        // Create hidden input field for IME support (Korean, Japanese, Chinese)
+        this.hiddenInput = document.createElement('input');
+        this.hiddenInput.type = 'text';
+        this.hiddenInput.style.position = 'absolute';
+        this.hiddenInput.style.left = '-9999px';
+        this.hiddenInput.style.opacity = '0';
+        document.body.appendChild(this.hiddenInput);
+        
         // Screens
         this.startScreen = document.getElementById('startScreen');
         this.gameOverScreen = document.getElementById('gameOverScreen');
@@ -70,52 +81,78 @@ class AcidRainGame {
      * Bind UI events
      */
     bindEvents() {
-        // Start button
-        document.getElementById('startButton').addEventListener('click', () => {
-            this.startGame();
+        // Language selection on start screen
+        document.getElementById('langEnButton').addEventListener('click', () => {
+            this.startGame('en');
         });
         
-        // Restart button
-        document.getElementById('restartButton').addEventListener('click', () => {
-            this.restartGame();
+        document.getElementById('langKoButton').addEventListener('click', () => {
+            this.startGame('ko');
+        });
+        
+        // Language selection on game over screen
+        document.getElementById('restartEnButton').addEventListener('click', () => {
+            this.restartGame('en');
+        });
+        
+        document.getElementById('restartKoButton').addEventListener('click', () => {
+            this.restartGame('ko');
         });
         
         // Canvas click to focus
         this.canvas.addEventListener('click', () => {
             if (this.state === 'running') {
-                this.canvas.focus();
+                this.hiddenInput.focus();
             }
         });
         
-        // Keyboard input
-        document.addEventListener('keydown', (e) => {
+        // Monitor hidden input for proper IME handling
+        this.hiddenInput.addEventListener('input', (e) => {
             if (this.state !== 'running') return;
             
-            // Refocus canvas if needed
-            if (document.activeElement !== this.canvas) {
-                this.canvas.focus();
+            const newValue = e.target.value;
+            
+            // Track word start time when first character is entered
+            if (newValue.length === 1 && this.currentInput.length === 0) {
+                this.wordStartTime = Date.now();
             }
             
-            // Handle letter keys
-            if (e.key.length === 1 && e.key.match(/[a-z]/i)) {
-                this.handleLetterInput(e.key.toLowerCase());
-            }
-            // Handle backspace
-            else if (e.key === 'Backspace') {
-                this.handleBackspace();
-            }
-            // Handle enter (submit word)
-            else if (e.key === 'Enter') {
+            this.currentInput = newValue;
+            this.updateInputDisplay();
+            
+            console.log(`[Game] Input: "${this.currentInput}"`);
+        });
+        
+        // Handle keyboard shortcuts
+        this.hiddenInput.addEventListener('keydown', (e) => {
+            if (this.state !== 'running') return;
+            
+            if (e.key === 'Enter') {
+                e.preventDefault();
                 this.handleSubmit();
+            } else if (e.key === 'Backspace' && this.hiddenInput.value === '') {
+                // Backspace on empty input
+                e.preventDefault();
+            }
+        });
+        
+        // Keep hidden input focused during game
+        document.addEventListener('click', () => {
+            if (this.state === 'running') {
+                this.hiddenInput.focus();
             }
         });
     }
     
     /**
      * Start the game
+     * @param {string} language - 'en' or 'ko'
      */
-    startGame() {
-        console.log('[Game] Starting game');
+    startGame(language = 'en') {
+        console.log(`[Game] Starting game with language: ${language}`);
+        
+        // Set language
+        this.currentLanguage = language;
         
         // Reset game state
         this.state = 'running';
@@ -133,8 +170,12 @@ class AcidRainGame {
         this.gameStartTime = Date.now();
         this.remainingTimeMs = this.gameDurationMs;
         
-        // Shuffle word list (no duplicates)
-        this.availableWords = getShuffledWordList();
+        // Shuffle word list based on language (no duplicates)
+        if (language === 'ko') {
+            this.availableWords = getShuffledWordListKo();
+        } else {
+            this.availableWords = getShuffledWordList();
+        }
         this.currentWordIndex = 0;
         console.log(`[Game] ${this.availableWords.length} unique words available`);
         
@@ -147,11 +188,12 @@ class AcidRainGame {
         document.getElementById('gameUI').classList.add('active');
         document.getElementById('inputDisplay').classList.add('active');
         
+        // Clear hidden input and focus it
+        this.hiddenInput.value = '';
+        this.hiddenInput.focus();
+        
         // Update UI
         this.updateUI();
-        
-        // Focus canvas to capture keyboard input
-        this.canvas.focus();
         
         // Track game start
         tracker.trackGameStart();
@@ -394,6 +436,7 @@ class AcidRainGame {
         
         // Clear input
         this.currentInput = '';
+        this.hiddenInput.value = '';
         this.wordStartTime = null;
         this.updateInputDisplay();
     }
@@ -474,9 +517,10 @@ class AcidRainGame {
     
     /**
      * Restart game
+     * @param {string} language - 'en' or 'ko'
      */
-    restartGame() {
-        this.startGame();
+    restartGame(language = 'en') {
+        this.startGame(language);
     }
 }
 

@@ -55,7 +55,7 @@ async def health():
 
 
 @app.post("/events")
-async def ingest_events(events: List[Dict[str, Any]]):
+async def ingest_events(events: List[Dict[str, Any]], request: Request):
     """
     Receive batch of events from frontend and write to GCS
     
@@ -66,16 +66,31 @@ async def ingest_events(events: List[Dict[str, Any]]):
     if not events:
         raise HTTPException(status_code=400, detail="No events provided")
     
-    # Validate event structure
+    # Extract geographic info from Cloud Run headers (or fallback to unknown)
+    # Cloud Run automatically provides these headers from App Engine infrastructure
+    country = request.headers.get("X-Appengine-Country", "UNKNOWN")
+    region = request.headers.get("X-Appengine-Region", "UNKNOWN")
+    city = request.headers.get("X-Appengine-City", "UNKNOWN")
+    
+    # Enrich each event with geographic data
     for event in events:
+        # Validate event structure
         if not all(k in event for k in ["event_id", "session_id", "event_type", "timestamp"]):
             raise HTTPException(
                 status_code=400, 
                 detail="Invalid event format - missing required fields"
             )
+        
+        # Add country to web_context (collected once per session on frontend)
+        if "web_context" not in event:
+            event["web_context"] = {}
+        
+        event["web_context"]["country"] = country
+        event["web_context"]["region"] = region
+        event["web_context"]["city"] = city
     
     # Log events to console (always, for debugging)
-    print(f"[Events] Received {len(events)} events")
+    print(f"[Events] Received {len(events)} events from {country}/{region}/{city}")
     for event in events:
         print(f"  - {event['event_type']}: {event.get('metadata', {})}")
     

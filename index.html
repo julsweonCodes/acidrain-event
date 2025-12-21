@@ -231,7 +231,14 @@
             <div class="content">
                 <h1 class="title">🌧️ Acid Rain</h1>
                 <p class="subtitle">Type the falling words before they reach the ground!</p>
-                <button class="button" id="startButton">Start Game</button>
+                
+                <div style="margin: 30px 0;">
+                    <div style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">SELECT LANGUAGE</div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="button" id="langEnButton" style="padding: 10px 30px;">English</button>
+                        <button class="button" id="langKoButton" style="padding: 10px 30px;">한국어</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -255,7 +262,13 @@
                     </div>
                 </div>
                 
-                <button class="button" id="restartButton" style="margin-top: 30px;">🔄 Play Again</button>
+                <div style="margin: 30px 0 20px 0;">
+                    <div style="font-size: 14px; opacity: 0.8; margin-bottom: 15px;">PLAY AGAIN WITH</div>
+                    <div style="display: flex; gap: 10px; justify-content: center;">
+                        <button class="button" id="restartEnButton" style="padding: 10px 30px;">English</button>
+                        <button class="button" id="restartKoButton" style="padding: 10px 30px;">한국어</button>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -293,6 +306,7 @@
 
     <!-- Load order is important: words → tracker → game -->
     <script src="words.js"></script>
+    <script src="words-ko.js"></script>
     <script src="tracker.js"></script>
     <script src="game.js"></script>
 </body>
