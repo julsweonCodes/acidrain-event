@@ -23,10 +23,8 @@ class AnalyticsTracker {
             // country will be added by backend from Cloud Run headers or IP
         };
         
-        // Event buffer
+        // Event buffer - holds ALL events until game_over
         this.eventBuffer = [];
-        this.maxBufferSize = 20;
-        this.flushIntervalMs = 10000; // 10 seconds
         
         // Metrics for web-level tracking
         this.pageLoadTime = Date.now();
@@ -40,9 +38,6 @@ class AnalyticsTracker {
         
         // Analytics endpoint
         this.endpoint = '/events';
-        
-        // Start periodic flush
-        this.startPeriodicFlush();
         
         // Listen for page visibility changes and unload
         this.attachVisibilityListeners();
@@ -90,15 +85,10 @@ class AnalyticsTracker {
         // Add to buffer
         this.eventBuffer.push(event);
         
-        console.log(`[Tracker] Event: ${eventType}`, metadata);
-        
         // Update debug UI
         this.updateDebugUI();
         
-        // Check if we should flush
-        if (this.eventBuffer.length >= this.maxBufferSize) {
-            this.flushEvents();
-        }
+        // Events buffered until game_over (one session = one file)
     }
     
     /**
@@ -187,7 +177,7 @@ class AnalyticsTracker {
             idle_time_ms: idleTimeMs
         });
         
-        // Flush immediately on game over
+        // Flush ALL session events as one batch (one session = one .json.gz file)
         this.flushEvents();
     }
     
@@ -240,31 +230,12 @@ class AnalyticsTracker {
     }
     
     /**
-     * Start periodic flush timer
-     */
-    startPeriodicFlush() {
-        setInterval(() => {
-            if (this.eventBuffer.length > 0) {
-                console.log('[Tracker] Periodic flush triggered');
-                this.flushEvents();
-            }
-        }, this.flushIntervalMs);
-    }
-    
-    /**
      * Attach visibility change listeners
-     * Flush when page becomes hidden or before unload
+     * Send buffered events if user closes page before game_over
      */
     attachVisibilityListeners() {
-        document.addEventListener('visibilitychange', () => {
-            if (document.hidden) {
-                console.log('[Tracker] Page hidden, flushing events');
-                this.flushEvents();
-            }
-        });
-        
         window.addEventListener('beforeunload', () => {
-            // Use sendBeacon for guaranteed delivery on page unload
+            // Use sendBeacon for guaranteed delivery if user leaves mid-game
             if (this.eventBuffer.length > 0) {
                 console.log('[Tracker] Page unloading, sending beacon');
                 const blob = new Blob([JSON.stringify(this.eventBuffer)], { type: 'application/json' });
