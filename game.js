@@ -119,8 +119,6 @@ class AcidRainGame {
             
             this.currentInput = newValue;
             this.updateInputDisplay();
-            
-            console.log(`[Game] Input: "${this.currentInput}"`);
         });
         
         // Handle keyboard shortcuts
@@ -281,7 +279,9 @@ class AcidRainGame {
         const x = Math.random() * (maxX - minX) + minX;
         
         const y = -20;
-        const speed = this.baseSpeed * this.currentSpeed;
+        // Korean mode: 1.5x speed multiplier for increased difficulty
+        const speedMultiplier = this.currentLanguage === 'ko' ? 1.5 : 1.0;
+        const speed = this.baseSpeed * this.currentSpeed * speedMultiplier;
         
         const fallingWord = {
             word,
@@ -295,8 +295,6 @@ class AcidRainGame {
         
         // Track word spawn
         tracker.trackWordSpawn(word, x, speed);
-        
-        console.log(`[Game] Spawned word: "${word}" at x=${x.toFixed(0)}`);
     }
     
     /**

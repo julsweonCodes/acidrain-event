@@ -54,7 +54,9 @@ async def health():
 @app.post("/events")
 async def ingest_events(events: List[Dict[str, Any]], request: Request):
     """
-    Stateless ingestion endpoint - receives events and writes to GCS
+    Stateless ingestion endpoint - receives all events from ONE session
+    
+    One session = one request = one .json.gz file
     
     Writes: gs://{bucket}/raw/YYYY/MM/DD/events_{uuid}.json.gz
     Format: gzip-compressed newline-delimited JSON (.jsonl)
