@@ -236,8 +236,6 @@ class AcidRainGame {
                 this.minSpawnInterval,
                 this.baseSpawnInterval - (this.currentSpeed - 1.0) * 200
             );
-            
-            console.log(`[Game] Speed: ${this.currentSpeed.toFixed(1)}x, Spawn: ${(this.currentSpawnInterval/1000).toFixed(1)}s`);
         }
         
         // Update falling words
@@ -279,8 +277,8 @@ class AcidRainGame {
         const x = Math.random() * (maxX - minX) + minX;
         
         const y = -20;
-        // Korean mode: 1.5x speed multiplier for increased difficulty
-        const speedMultiplier = this.currentLanguage === 'ko' ? 1.5 : 1.0;
+        // Korean mode: 2x speed multiplier for increased difficulty
+        const speedMultiplier = this.currentLanguage === 'ko' ? 2.0 : 1.0;
         const speed = this.baseSpeed * this.currentSpeed * speedMultiplier;
         
         const fallingWord = {
@@ -314,8 +312,6 @@ class AcidRainGame {
                 // Remove word
                 this.fallingWords.splice(i, 1);
                 this.wordsMissed++;
-                
-                console.log(`[Game] Word missed: "${word.word}"`);
                 
                 // Check game over condition (lose after 10 misses)
                 if (this.wordsMissed >= 10) {
@@ -422,14 +418,10 @@ class AcidRainGame {
             
             // Remove word
             this.fallingWords.splice(matchIndex, 1);
-            
-            console.log(`[Game] Correct! "${this.currentInput}" (+${points} points, ${timeToType}ms)`);
         } else {
             // Incorrect
             const availableWords = this.fallingWords.map(w => w.word);
             tracker.trackWordTypedIncorrect(this.currentInput, availableWords);
-            
-            console.log(`[Game] Incorrect: "${this.currentInput}"`);
         }
         
         // Clear input
@@ -499,9 +491,6 @@ class AcidRainGame {
         document.getElementById('finalTyped').textContent = this.wordsTyped;
         document.getElementById('finalMissed').textContent = this.wordsMissed;
         
-        console.log('[Game] Showing game over screen');
-        console.log('[Game] Score:', this.score, 'Typed:', this.wordsTyped, 'Missed:', this.wordsMissed);
-        
         // Hide game UI
         this.canvas.classList.remove('active');
         document.getElementById('gameUI').classList.remove('active');
@@ -509,8 +498,6 @@ class AcidRainGame {
         
         // Show game over screen
         this.gameOverScreen.classList.add('show');
-        
-        console.log('[Game] Game over screen should now be visible');
     }
     
     /**
