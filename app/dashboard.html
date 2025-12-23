@@ -3,26 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <title>Acid Rain Dashboard</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <h1>📊 Acid Rain Dashboard</h1>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <div id="stats">
-    <p>Total Sessions: <span id="sessions">-</span></p>
-    <p>Total Attempts: <span id="attempts">-</span></p>
-    <p>Accuracy: <span id="accuracy">-</span></p>
+  <!-- Shared stylesheet -->
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+
+<body>
+  <div class="container">
+    <h1 class="title">📊 Game Analytics Dashboard</h1>
+    <p class="subtitle">
+      Player behavior summary (last 7 days)
+    </p>
+
+    <!-- KPI CARDS -->
+    <div class="stats-panel">
+      <div class="stat-item">
+        <div class="stat-item-label">Total Sessions</div>
+        <div class="stat-item-value" id="totalSessions">–</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-item-label">Total Attempts</div>
+        <div class="stat-item-value" id="totalAttempts">–</div>
+      </div>
+
+      <div class="stat-item correct">
+        <div class="stat-item-label">Correct Attempts</div>
+        <div class="stat-item-value" id="correctAttempts">–</div>
+      </div>
+
+      <div class="stat-item">
+        <div class="stat-item-label">Accuracy</div>
+        <div class="stat-item-value" id="accuracy">–</div>
+      </div>
+    </div>
+
+    <!-- FUTURE CHART AREA -->
+    <div style="margin-top: 40px; opacity: 0.6;">
+      <p class="subtitle">
+        📈 Charts coming next (speed trends, error rates, word difficulty)
+      </p>
+    </div>
+
+    <!-- NAVIGATION -->
+    <div style="margin-top: 50px;">
+      <button class="button" onclick="goBack()">
+        ← Back to Game
+      </button>
+    </div>
   </div>
 
+  <!-- SCRIPT -->
   <script>
-    fetch("https://us-central1-acidrain-event.cloudfunctions.net/acidrain-dashboard-api")
-      .then(res => res.json())
-      .then(data => {
-        document.getElementById("sessions").innerText = data.total_sessions;
-        document.getElementById("attempts").innerText = data.total_attempts;
-        document.getElementById("accuracy").innerText = data.accuracy;
-      })
-      .catch(err => console.error(err));
+    const API_URL =
+      "https://us-central1-acidrain-event.cloudfunctions.net/acidrain-dashboard-api";
+
+    async function loadDashboard() {
+      try {
+        const res = await fetch(API_URL);
+        const data = await res.json();
+
+        document.getElementById("totalSessions").innerText =
+          data.total_sessions;
+        document.getElementById("totalAttempts").innerText =
+          data.total_attempts;
+        document.getElementById("correctAttempts").innerText =
+          data.correct_attempts;
+        document.getElementById("accuracy").innerText =
+          Math.round(data.accuracy * 100) + "%";
+      } catch (err) {
+        console.error("Dashboard load failed", err);
+      }
+    }
+
+    function goBack() {
+      window.location.href = "/";
+    }
+
+    loadDashboard();
   </script>
 </body>
 </html>
