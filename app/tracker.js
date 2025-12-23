@@ -122,16 +122,19 @@ class AnalyticsTracker {
      * @param {number} currentSpeed - Current game speed
      * @param {string[]} visibleWords - All words visible on screen when typed
      */
-    trackWordTypedCorrect(word, timeToType, currentSpeed, visibleWords = []) {
+    trackWordTypedCorrect(word, timeToType, currentSpeed, visibleWords) {
+        console.log('[Tracker] correct:', word);
+
         this.trackEvent('word_typed_correct', {
             word,
-            attempted: word,  // What user typed (same as word for correct attempts)
+            attempted: word,
             time_to_type_ms: timeToType,
             current_speed: currentSpeed,
             visible_words: visibleWords,
             visible_words_count: visibleWords.length
         });
     }
+
     
     /**
      * Track incorrect typing attempt
@@ -139,24 +142,19 @@ class AnalyticsTracker {
      * @param {string[]} availableWords - Words currently on screen
      * @param {object} closestMatch - Best matching word with metrics
      */
-    trackWordTypedIncorrect(attempted, availableWords, closestMatch = null) {
-        console.log('[Tracker] word_typed_incorrect:', {
-            closestMatch: closestMatch,
-            hasWord: closestMatch ? true : false,
-            word: closestMatch ? closestMatch.word : 'null',
-            chars: closestMatch ? closestMatch.chars_matched : 0,
-            ratio: closestMatch ? closestMatch.match_ratio : 0
-        });
-        
+    trackWordTypedIncorrect(attempted, availableWords, closestMatch) {
+        console.log('[Tracker] incorrect:', attempted);
+
         this.trackEvent('word_typed_incorrect', {
             attempted,
             visible_words: availableWords,
             visible_words_count: availableWords.length,
-            closest_match: closestMatch ? closestMatch.word : null,
-            chars_matched: closestMatch ? closestMatch.chars_matched : 0,
-            match_ratio: closestMatch ? closestMatch.match_ratio : 0
+            closest_match: closestMatch?.word ?? null,
+            chars_matched: closestMatch?.chars_matched ?? 0,
+            match_ratio: closestMatch?.match_ratio ?? 0
         });
     }
+
     
     /**
      * Track word missed (reached bottom)

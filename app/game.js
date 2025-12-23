@@ -14,6 +14,8 @@ class AcidRainGame {
         
         // Language setting
         this.currentLanguage = 'en'; // 'en' or 'ko'
+        this.isComposing = false;
+        this.justSubmitted = false;
         
         // Game state
         this.state = 'idle'; // idle, running, game_over
@@ -109,17 +111,23 @@ class AcidRainGame {
         // Monitor hidden input for proper IME handling
         this.hiddenInput.addEventListener('input', (e) => {
             if (this.state !== 'running') return;
-            
+
+            if (this.justSubmitted) {
+                this.hiddenInput.value = '';
+                this.justSubmitted = false;
+                return;
+            }
+
             const newValue = e.target.value;
-            
-            // Track word start time when first character is entered
+
             if (newValue.length === 1 && this.currentInput.length === 0) {
                 this.wordStartTime = Date.now();
             }
-            
+
             this.currentInput = newValue;
             this.updateInputDisplay();
         });
+
         
         // Handle keyboard shortcuts
         this.hiddenInput.addEventListener('keydown', (e) => {
@@ -138,6 +146,44 @@ class AcidRainGame {
         document.addEventListener('click', () => {
             if (this.state === 'running') {
                 this.hiddenInput.focus();
+            }
+        });
+
+                // IME 조합 시작
+        this.hiddenInput.addEventListener('compositionstart', () => {
+            this.isComposing = true;
+        });
+
+        // IME 조합 종료
+        this.hiddenInput.addEventListener('compositionend', (e) => {
+            this.isComposing = false;
+            this.currentInput = e.target.value;
+            this.updateInputDisplay();
+        });
+
+        // 일반 input (IME 조합 중이면 무시)
+        this.hiddenInput.addEventListener('input', (e) => {
+            if (this.state !== 'running') return;
+            if (this.isComposing) return;
+
+            const value = e.target.value;
+
+            if (value.length === 1 && this.currentInput.length === 0) {
+                this.wordStartTime = Date.now();
+            }
+
+            this.currentInput = value;
+            this.updateInputDisplay();
+        });
+
+        // Enter 처리 (attempt는 여기서만)
+        this.hiddenInput.addEventListener('keydown', (e) => {
+            if (this.state !== 'running') return;
+
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (this.isComposing) return; // 🔥 핵심
+                this.handleSubmit();
             }
         });
     }
@@ -251,6 +297,18 @@ class AcidRainGame {
         this.animationId = requestAnimationFrame(() => this.gameLoop());
     }
     
+    /**
+     * Check if input is a valid prefix of any visible word
+     */
+    isPrefixOfAnyWord(input) {
+        if (!input || this.fallingWords.length === 0) return false;
+
+        const inputLower = input.toLowerCase();
+        return this.fallingWords.some(w =>
+            w.word.toLowerCase().startsWith(inputLower)
+        );
+    }
+
     /**
      * Spawn a new falling word
      */
@@ -398,53 +456,72 @@ class AcidRainGame {
      * Handle submit (Enter key)
      */
     handleSubmit() {
+        // Guard: no input
         if (this.currentInput.length === 0) return;
-        
-        // Find matching word (case-insensitive)
-        const matchIndex = this.fallingWords.findIndex(w => w.word.toLowerCase() === this.currentInput.toLowerCase());
-        
+
+        // ✅ Attempt happens ONLY on Enter
+        const attempt = this.currentInput;
+        this.justSubmitted = true;
+
+        console.log('[Game] Attempt:', attempt);
+
+        // Find exact match (case-insensitive)
+        const matchIndex = this.fallingWords.findIndex(
+            w => w.word.toLowerCase() === attempt.toLowerCase()
+        );
+
         if (matchIndex !== -1) {
-            // Correct!
+            // ✅ CORRECT
             const matchedWord = this.fallingWords[matchIndex];
-            const timeToType = Date.now() - this.wordStartTime;
-            
-            // Get all visible words for context
+            const timeToType = this.wordStartTime
+                ? Date.now() - this.wordStartTime
+                : null;
+
             const visibleWords = this.fallingWords.map(w => w.word);
-            
-            // Track correct typing
-            tracker.trackWordTypedCorrect(matchedWord.word, timeToType, this.currentSpeed, visibleWords);
-            
-            // Update score (longer words = more points)
+
+            console.log('[Game] Correct:', matchedWord.word);
+
+            tracker.trackWordTypedCorrect(
+                matchedWord.word,
+                timeToType,
+                this.currentSpeed,
+                visibleWords
+            );
+
+            // Score update
             const points = matchedWord.word.length * Math.floor(this.currentSpeed);
             this.score += points;
             this.wordsTyped++;
-            
+
             // Remove word
             this.fallingWords.splice(matchIndex, 1);
         } else {
-            // Incorrect - find closest match for partial completion metrics
+            // ❌ INCORRECT
             const availableWords = this.fallingWords.map(w => w.word);
-            const closestMatch = this.findClosestMatch(this.currentInput, availableWords);
-            
-            console.log('[Game] Incorrect attempt:', {
-                attempted: this.currentInput,
-                closestMatch: closestMatch,
-                availableWords: availableWords.length
-            });
-            
+            const closestMatch = this.findClosestMatch(attempt, availableWords);
+
+            console.log('[Game] Incorrect:', attempt);
+
             tracker.trackWordTypedIncorrect(
-                this.currentInput,
+                attempt,
                 availableWords,
                 closestMatch
             );
         }
-        
-        // Clear input
+
+        // ✅ Reset input state AFTER handling attempt
         this.currentInput = '';
         this.hiddenInput.value = '';
         this.wordStartTime = null;
         this.updateInputDisplay();
     }
+
+
+
+    isPrefixOfAnyWord(input) {
+        return this.fallingWords.some(w => w.word.startsWith(input));
+    }
+
     
     /**
      * Find closest matching word and calculate similarity
