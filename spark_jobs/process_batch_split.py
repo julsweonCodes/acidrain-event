@@ -210,40 +210,29 @@ def process_events(spark, watermark_time, batch_start_time):
     from pyspark.sql.types import ArrayType, StringType
     
     attempts_df = df.filter(
-        (col("event_type") == "word_typed_correct") | 
+        (col("event_type") == "word_typed_correct") |
         (col("event_type") == "word_typed_incorrect")
     ).select(
         col("event_id").alias("attempt_id"),
         col("session_id"),
         col("timestamp_parsed").alias("timestamp"),
-        
-        # Was it correct?
-        (col("event_type") == "word_typed_correct").alias("was_correct"),
-        
-        # What was attempted/matched
-        # For both correct and incorrect: attempted field contains what user typed
-        col("metadata.attempted").cast("string").alias("attempted_word"),
-        # For correct: word = matched word. For incorrect: closest_match = best match
-        coalesce(
-            col("metadata.word"),                # correct
-            col("metadata.intended_word")         # incorrect
-        ).alias("matched_word"),
 
-        col("metadata.intended_word")
-            .cast("string")
-            .alias("intended_word"),
+        (col("event_type") == "word_typed_correct").alias("was_correct"),
+
+        col("metadata.attempted").alias("attempted_word"),
+        col("metadata.word").alias("matched_word"),
         col("metadata.time_to_type_ms").alias("time_to_type_ms"),
         col("metadata.current_speed").cast("double").alias("current_speed"),
-        
-        # Visible words context - parse from JSON string if needed, otherwise cast
-        from_json(col("metadata.visible_words").cast("string"), "array<string>").alias("visible_words"),
+
+        col("metadata.visible_words").alias("visible_words"),
         col("metadata.visible_words_count").alias("visible_words_count"),
-        
-        # Partial completion (if incorrect, these are NULL for correct)
-        col("metadata.closest_match").cast("string").alias("closest_match"),
+
+        col("metadata.closest_match").alias("closest_match"),
         col("metadata.chars_matched").alias("chars_matched"),
         col("metadata.match_ratio").cast("double").alias("match_ratio"),
-        
+
+        col("metadata.intended_word").alias("intended_word"),
+
         current_timestamp().alias("processing_timestamp")
     )
     
