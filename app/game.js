@@ -44,7 +44,12 @@ class AcidRainGame {
         this.baseSpeed = 0.5; // Base falling speed (pixels per frame)
         
         // User input
-        this.currentInput = '';
+        this.isComposing = false;
+        this.lastHighlightedBeforeChange = null;
+        this.currentHighlightedWord = null; 
+        this.lastHighlightedWord = null;
+
+        
         
         // Timing for tracking
         this.wordStartTime = null; // When user starts typing current word
@@ -112,33 +117,24 @@ class AcidRainGame {
         this.hiddenInput.addEventListener('input', (e) => {
             if (this.state !== 'running') return;
 
+            // 🔹 화면 표시는 항상 한다
+            const newValue = e.target.value;
+            this.currentInput = newValue;
+            this.updateInputDisplay();
+
+            // 🔹 하지만 조합 중이면 여기서 종료 (attempt 판단 금지)
+            if (this.isComposing) return;
+
+            // 🔹 submit 직후 cleanup
             if (this.justSubmitted) {
                 this.hiddenInput.value = '';
                 this.justSubmitted = false;
                 return;
             }
 
-            const newValue = e.target.value;
-
-            if (newValue.length === 1 && this.currentInput.length === 0) {
+            // 🔹 typing 시작 시간
+            if (newValue.length === 1 && !this.wordStartTime) {
                 this.wordStartTime = Date.now();
-            }
-
-            this.currentInput = newValue;
-            this.updateInputDisplay();
-        });
-
-        
-        // Handle keyboard shortcuts
-        this.hiddenInput.addEventListener('keydown', (e) => {
-            if (this.state !== 'running') return;
-            
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                this.handleSubmit();
-            } else if (e.key === 'Backspace' && this.hiddenInput.value === '') {
-                // Backspace on empty input
-                e.preventDefault();
             }
         });
         
@@ -161,18 +157,10 @@ class AcidRainGame {
             this.updateInputDisplay();
         });
 
-        // 일반 input (IME 조합 중이면 무시)
-        this.hiddenInput.addEventListener('input', (e) => {
+        this.hiddenInput.addEventListener('compositionupdate', (e) => {
             if (this.state !== 'running') return;
-            if (this.isComposing) return;
 
-            const value = e.target.value;
-
-            if (value.length === 1 && this.currentInput.length === 0) {
-                this.wordStartTime = Date.now();
-            }
-
-            this.currentInput = value;
+            this.currentInput = e.target.value;
             this.updateInputDisplay();
         });
 
@@ -358,9 +346,19 @@ class AcidRainGame {
      */
     updateWords(deltaTime) {
         // Update positions
+        this.currentHighlightedWord = null;
         for (let i = this.fallingWords.length - 1; i >= 0; i--) {
             const word = this.fallingWords[i];
             word.y += word.speed * (deltaTime / 16); // Normalize to ~60fps
+
+            const isPartialMatch =
+                this.currentInput.length > 0 &&
+                word.word.startsWith(this.currentInput);
+
+            if (isPartialMatch) {
+                this.currentHighlightedWord = word.word;
+            }
+
             
             // Check if word reached bottom
             if (word.y > this.canvas.height) {
@@ -390,6 +388,8 @@ class AcidRainGame {
         // Draw falling words
         this.ctx.font = '24px Courier New';
         this.ctx.textAlign = 'center';
+
+        this.currentHighlightedWord = null;
         
         for (const word of this.fallingWords) {
             // Check if this word matches current input (case-insensitive)
@@ -400,6 +400,8 @@ class AcidRainGame {
                 this.ctx.fillStyle = '#00ff00';
                 this.ctx.shadowColor = '#00ff00';
                 this.ctx.shadowBlur = 10;
+                this.currentHighlightedWord = word.word;
+                this.lastHighlightedWord = word.word;
             } else {
                 this.ctx.fillStyle = '#ffffff';
                 this.ctx.shadowColor = 'transparent';
@@ -459,7 +461,6 @@ class AcidRainGame {
         // Guard: no input
         if (this.currentInput.length === 0) return;
 
-        // ✅ Attempt happens ONLY on Enter
         const attempt = this.currentInput;
         this.justSubmitted = true;
 
@@ -471,7 +472,6 @@ class AcidRainGame {
         );
 
         if (matchIndex !== -1) {
-            // ✅ CORRECT
             const matchedWord = this.fallingWords[matchIndex];
             const timeToType = this.wordStartTime
                 ? Date.now() - this.wordStartTime
@@ -498,14 +498,23 @@ class AcidRainGame {
         } else {
             // ❌ INCORRECT
             const availableWords = this.fallingWords.map(w => w.word);
-            const closestMatch = this.findClosestMatch(attempt, availableWords);
+            const closestMatch = this.findClosestMatch(this.currentInput, availableWords);
 
-            console.log('[Game] Incorrect:', attempt);
+            const intendedWord = this.lastHighlightedWord || this.currentHighlightedWord || null;
 
+
+            console.log(
+                `[Game] Incorrect | attempted="${this.currentInput}" | intended="${intendedWord}"`
+            );
+
+            // Tracker로 전달
             tracker.trackWordTypedIncorrect(
-                attempt,
+                this.currentInput,
                 availableWords,
-                closestMatch
+                {
+                    ...closestMatch,
+                    intended_word: intendedWord
+                }
             );
         }
 
@@ -513,6 +522,7 @@ class AcidRainGame {
         this.currentInput = '';
         this.hiddenInput.value = '';
         this.wordStartTime = null;
+        this.lastHighlightedWord = null;
         this.updateInputDisplay();
     }
 

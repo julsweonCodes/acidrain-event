@@ -143,10 +143,15 @@ class AnalyticsTracker {
      * @param {object} closestMatch - Best matching word with metrics
      */
     trackWordTypedIncorrect(attempted, availableWords, closestMatch) {
-        console.log('[Tracker] incorrect:', attempted);
+        const intended = closestMatch?.intended_word ?? null;
+
+        console.log(
+            `[Tracker] incorrect | attempted="${attempted}" | intended="${intended}"`
+        );
 
         this.trackEvent('word_typed_incorrect', {
             attempted,
+            intended_word: intended,
             visible_words: availableWords,
             visible_words_count: availableWords.length,
             closest_match: closestMatch?.word ?? null,
