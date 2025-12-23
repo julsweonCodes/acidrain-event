@@ -51,6 +51,12 @@ app.mount(
 async def serve_index():
     return FileResponse(APP_DIR / "index.html")
 
+@app.get("/dashboard")
+async def serve_dashboard():
+    return FileResponse(APP_DIR / "dashboard.html")
+
+
+
 # -------------------------------------------------------------------
 # GCS configuration
 # -------------------------------------------------------------------
