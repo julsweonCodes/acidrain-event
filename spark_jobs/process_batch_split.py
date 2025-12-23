@@ -21,7 +21,7 @@ import json
 import uuid
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, to_timestamp, current_timestamp, lit, array_join
+from pyspark.sql.functions import col, to_timestamp, current_timestamp, lit, array_join,
 
 from config import (
     RAW_BUCKET, RAW_PREFIX, QUARANTINE_PREFIX,
@@ -219,34 +219,44 @@ def process_events(spark, watermark_time, batch_start_time):
 
         (col("event_type") == "word_typed_correct").alias("was_correct"),
 
-        col("metadata.attempted").alias("attempted_word"),
-        col("metadata.word").alias("matched_word"),
-        col("metadata.time_to_type_ms").alias("time_to_type_ms"),
-        col("metadata.current_speed").cast("double").alias("current_speed"),
+        col("metadata.attempted").cast("string").alias("attempted_word"),
+        coalesce(col("metadata.word"), col("metadata.closest_match"))
+            .cast("string")
+            .alias("matched_word"),
 
+        col("metadata.time_to_type_ms").cast("int").alias("time_to_type_ms"),
+        round(col("metadata.current_speed").cast("double"), 1).alias("current_speed"),
         col("metadata.visible_words").alias("visible_words"),
-        col("metadata.visible_words_count").alias("visible_words_count"),
-
-        col("metadata.closest_match").alias("closest_match"),
-        col("metadata.chars_matched").alias("chars_matched"),
+        col("metadata.visible_words_count").cast("long").alias("visible_words_count"),
+        col("metadata.closest_match").cast("string").alias("closest_match"),
+        col("metadata.chars_matched").cast("long").alias("chars_matched"),
         col("metadata.match_ratio").cast("double").alias("match_ratio"),
-
-        col("metadata.intended_word").alias("intended_word"),
+        col("metadata.intended_word").cast("string").alias("intended_word"),
 
         current_timestamp().alias("processing_timestamp")
     )
+
     
     attempts_count = attempts_df.count()
     print(f"  Attempts: {attempts_count}")
     
     # Write to BigQuery
     print("\n💾 Writing to BigQuery...")
+
+    print("before that... we gonna check")
+    print("=== ATTEMPTS DF SCHEMA ===")
+    attempts_df.printSchema()
+
+    print("=== ATTEMPTS DF SAMPLE ===")
+    attempts_df.show(20, truncate=False)
+    
+    # Write sessions
     
     # Write sessions
     if sessions_count > 0:
         sessions_table = f"{BQ_PROJECT}.{BQ_DATASET}.{BQ_TABLE_SESSIONS}"
         sessions_df.write \
-            .format("bigquery") \
+            .format("com.google.cloud.spark.bigquery.v2.Spark33BigQueryTableProvider") \
             .option("table", sessions_table) \
             .option("temporaryGcsBucket", "acidrain-bq-temp") \
             .option("partitionField", "game_over_timestamp") \
@@ -254,12 +264,12 @@ def process_events(spark, watermark_time, batch_start_time):
             .option("clusteredFields", "session_id") \
             .mode("append") \
             .save()
-        print(f"  ✓ Sessions: {sessions_count} rows → {sessions_table}")
-    
+
     # Write attempts
     if attempts_count > 0:
         attempts_table = f"{BQ_PROJECT}.{BQ_DATASET}.{BQ_TABLE_ATTEMPTS}"
         attempts_df.write \
+            .format("com.google.cloud.spark.bigquery.v2.Spark33BigQueryTableProvider") \
             .option("table", attempts_table) \
             .option("temporaryGcsBucket", "acidrain-bq-temp") \
             .option("partitionField", "timestamp") \
@@ -267,8 +277,7 @@ def process_events(spark, watermark_time, batch_start_time):
             .option("clusteredFields", "session_id,was_correct") \
             .mode("append") \
             .save()
-        print(f"  ✓ Attempts: {attempts_count} rows → {attempts_table}")
-    
+
     return event_count
 
 
