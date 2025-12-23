@@ -47,6 +47,7 @@ attempts_schema = StructType([
     # Attempt details
     StructField("was_correct", BooleanType(), False),
     StructField("attempted_word", StringType(), True),  # What user typed
+    StructField("intended_word", StringType(), True),
     StructField("matched_word", StringType(), True),    # If correct, what word matched
     StructField("time_to_type_ms", IntegerType(), True),  # If correct
     StructField("current_speed", FloatType(), True),    # Speed at attempt
@@ -90,6 +91,7 @@ session_id:STRING,
 timestamp:TIMESTAMP,
 was_correct:BOOLEAN,
 attempted_word:STRING,
+intended_word:STRING,
 matched_word:STRING,
 time_to_type_ms:INTEGER,
 current_speed:FLOAT,

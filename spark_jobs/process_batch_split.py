@@ -224,7 +224,14 @@ def process_events(spark, watermark_time, batch_start_time):
         # For both correct and incorrect: attempted field contains what user typed
         col("metadata.attempted").cast("string").alias("attempted_word"),
         # For correct: word = matched word. For incorrect: closest_match = best match
-        coalesce(col("metadata.word"), col("metadata.closest_match")).cast("string").alias("matched_word"),
+        coalesce(
+            col("metadata.word"),                # correct
+            col("metadata.intended_word")         # incorrect
+        ).alias("matched_word"),
+
+        col("metadata.intended_word")
+            .cast("string")
+            .alias("intended_word"),
         col("metadata.time_to_type_ms").alias("time_to_type_ms"),
         col("metadata.current_speed").cast("double").alias("current_speed"),
         
