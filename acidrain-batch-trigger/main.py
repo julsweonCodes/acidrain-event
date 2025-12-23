@@ -13,9 +13,6 @@ PY_FILES = [
     "gs://acidrain-events-raw/spark_jobs/validation.py",
 ]
 
-JARS = [
-    "gs://spark-lib/bigquery/spark-bigquery-with-dependencies_2.12-0.37.0.jar",
-]
 
 BATCH_SA = "acidrain-batch-sa@acidrain-event.iam.gserviceaccount.com"
 SUBNETWORK_URI = "projects/acidrain-event/regions/us-central1/subnetworks/default"
@@ -38,14 +35,12 @@ def trigger_batch(request):
         "pyspark_batch": {
             "main_python_file_uri": MAIN_PYSPARK_URI,
             "python_file_uris": PY_FILES,
-            "jar_file_uris": JARS,
         },
         "runtime_config": {
             "properties": {
                 "spark.executor.memory": "4g",
                 "spark.executor.cores": "4",
                 "spark.dynamicAllocation.enabled": "true",
-                "spark.sql.sources.partitionOverwriteMode": "dynamic",
             }
         },
         "environment_config": {

@@ -1,0 +1,168 @@
+/* ===== RESET ===== */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* ===== GLOBAL ===== */
+body {
+    font-family: 'Courier New', monospace;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    color: white;
+}
+
+.container {
+    text-align: center;
+}
+
+/* ===== CANVAS ===== */
+#gameCanvas {
+    background: rgba(0, 0, 0, 0.3);
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    border-radius: 10px;
+    display: block;
+    margin: 20px auto;
+}
+
+/* ===== UI ===== */
+.ui {
+    margin: 20px 0;
+}
+
+.score-panel {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+.stat,
+.stat-item {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 10px 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-label,
+.stat-item-label {
+    font-size: 12px;
+    opacity: 0.8;
+    text-transform: uppercase;
+}
+
+.stat-value,
+.stat-item-value {
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 5px;
+    color: #ffd700;
+}
+
+.stat-item.correct .stat-item-value {
+    color: #00ff00;
+}
+
+.stat-item.missed .stat-item-value {
+    color: #ff5555;
+}
+
+/* ===== INPUT ===== */
+#inputDisplay {
+    font-size: 28px;
+    min-height: 40px;
+    letter-spacing: 2px;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 15px 30px;
+    border-radius: 8px;
+    margin: 20px 0;
+}
+
+/* ===== BUTTON ===== */
+.button {
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid white;
+    color: white;
+    padding: 15px 40px;
+    font-size: 18px;
+    font-family: 'Courier New', monospace;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.05);
+}
+
+.button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ===== OVERLAYS ===== */
+#startScreen,
+#gameOverScreen {
+    position: fixed;
+    inset: 0;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 1000;
+}
+
+#startScreen.show,
+#gameOverScreen.show {
+    display: flex;
+}
+
+.content {
+    background: rgba(103, 126, 234, 0.2);
+    padding: 40px;
+    border-radius: 15px;
+    min-width: 400px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ===== TITLES ===== */
+.title {
+    font-size: 36px;
+    margin-bottom: 20px;
+}
+
+.subtitle {
+    font-size: 14px;
+    opacity: 0.7;
+    margin-bottom: 30px;
+}
+
+.final-score {
+    font-size: 48px;
+    margin: 20px 0;
+    color: #ffd700;
+}
+
+/* ===== UTILS ===== */
+.hidden {
+    display: none !important;
+}
+
+.debug-info {
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 11px;
+}
