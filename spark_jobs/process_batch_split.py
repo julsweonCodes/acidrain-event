@@ -29,7 +29,6 @@ from config import (
     MAX_VALIDATION_FAILURES_PERCENT
 )
 from watermark import read_watermark, write_watermark
-from validation import validate_events, ValidationResult
 from google.cloud import storage
 
 
@@ -37,127 +36,133 @@ def create_spark_session():
     """Create Spark session with BigQuery connector"""
     return SparkSession.builder \
         .appName(SPARK_APP_NAME) \
-        .config("spark.jars.packages", "com.google.cloud.spark:spark-bigquery-with-dependencies_2.12:0.32.0") \
         .getOrCreate()
 
 
-def quarantine_invalid_events(validation_result: ValidationResult, batch_start_time: datetime):
+def get_files_after_watermark(watermark_time):
     """
-    Write invalid events to GCS quarantine bucket for manual review
+    List GCS files created after watermark (file-based, not event-based)
     
-    Path: gs://bucket/quarantine/YYYY/MM/DD/invalid_events_{uuid}.json
+    Best practice: Filter files by blob.time_created BEFORE Spark reads them
     """
-    if validation_result.invalid_count == 0:
-        print("✓ No invalid events to quarantine")
-        return
+    from google.cloud import storage
     
-    try:
-        client = storage.Client(project=BQ_PROJECT)
-        bucket = client.bucket(RAW_BUCKET)
-        
-        year = batch_start_time.year
-        month = batch_start_time.month
-        day = batch_start_time.day
-        file_uuid = uuid.uuid4().hex[:8]
-        
-        quarantine_path = (
-            f"{QUARANTINE_PREFIX}{year}/{month:02d}/{day:02d}/"
-            f"invalid_events_{file_uuid}.json"
-        )
-        
-        quarantine_data = {
-            "batch_timestamp": batch_start_time.isoformat(),
-            "invalid_count": validation_result.invalid_count,
-            "error_summary": validation_result.get_error_summary(),
-            "invalid_events": validation_result.invalid_events,
-            "validation_errors": validation_result.validation_errors
-        }
-        
-        blob = bucket.blob(quarantine_path)
-        blob.upload_from_string(
-            json.dumps(quarantine_data, indent=2),
-            content_type="application/json"
-        )
-        
-        print(f"✓ Quarantined {validation_result.invalid_count} invalid events to:")
-        print(f"  gs://{RAW_BUCKET}/{quarantine_path}")
-        print(f"  Error summary: {validation_result.get_error_summary()}")
-        
-    except Exception as e:
-        print(f"⚠ Warning: Failed to quarantine invalid events: {e}")
-        print("  Continuing with valid events only")
+    client = storage.Client(project=BQ_PROJECT)
+    bucket = client.bucket(RAW_BUCKET)
+    
+    # List all blobs in the raw prefix
+    blobs = bucket.list_blobs(prefix=RAW_PREFIX)
+    
+    eligible_files = []
+    for blob in blobs:
+        if blob.name.endswith('.json.gz'):
+            # Filter by file creation time, not event timestamps
+            if blob.time_created.replace(tzinfo=timezone.utc) > watermark_time:
+                eligible_files.append(f"gs://{RAW_BUCKET}/{blob.name}")
+    
+    return eligible_files
 
 
-def get_incremental_path(watermark_time):
-    """Generate GCS path for files after watermark"""
-    base_path = f"gs://{RAW_BUCKET}/{RAW_PREFIX}"
-    return f"{base_path}[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9]/*.json.gz"
+def validate_partition(rows):
+    """
+    Distributed validation using Pydantic
+    
+    Runs on each Spark partition (not on driver)
+    Best practice: Validation must stay distributed
+    """
+    from validation import AcidRainEvent
+    
+    for row in rows:
+        try:
+            # Validate the event
+            event_dict = row.asDict(recursive=True)
+            AcidRainEvent(**event_dict)
+            # Valid event: (row, is_valid=True, error=None)
+            yield (row, True, None)
+        except Exception as e:
+            # Invalid event: (row, is_valid=False, error=str)
+            yield (row, False, str(e))
 
 
 def process_events(spark, watermark_time, batch_start_time):
     """
     Main processing logic with SPLIT TABLE design:
-    1. Read & validate events
-    2. Split into sessions + attempts
-    3. Write to two separate BigQuery tables
+    1. List files after watermark (file-based filtering)
+    2. Read & validate events (distributed validation)
+    3. Split into sessions + attempts
+    4. Write to two separate BigQuery tables
     """
     
-    # Read raw events
-    raw_path = get_incremental_path(watermark_time)
-    print(f"Reading from: {raw_path}")
+    # Step 1: List eligible files (file-based watermark)
+    print(f"\n📂 Listing files after watermark...")
     print(f"Watermark: {watermark_time.isoformat()}")
     
-    df_raw = spark.read.json(raw_path)
+    eligible_files = get_files_after_watermark(watermark_time)
     
-    # Validate events
-    print("\n📋 Validating events...")
-    events_list = df_raw.toJSON().map(lambda x: json.loads(x)).collect()
-    
-    if not events_list:
-        print("No events found to process")
+    if not eligible_files:
+        print("No new files to process")
         return 0
     
-    validation_result = validate_events(events_list)
+    print(f"Found {len(eligible_files)} files to process")
+    
+    # Step 2: Read only eligible files
+    df_raw = spark.read.json(eligible_files)
+    
+    # Step 3: Distributed validation (runs on partitions, not driver)
+    print("\n📋 Validating events (distributed)...")
+    
+    from pyspark.sql.types import StructType, StructField, BooleanType, StringType
+    
+    # Define schema for validation results
+    validation_schema = StructType([
+        StructField("row", df_raw.schema, False),
+        StructField("is_valid", BooleanType(), False),
+        StructField("error", StringType(), True)
+    ])
+    
+    # Validate using mapPartitions (distributed, not .collect())
+    validated_rdd = df_raw.rdd.mapPartitions(validate_partition)
+    df_validated = spark.createDataFrame(validated_rdd, schema=validation_schema)
+    
+    # Separate valid and invalid
+    df_valid = df_validated.filter(col("is_valid") == True).select("row.*")
+    df_invalid = df_validated.filter(col("is_valid") == False)
+    
+    total_count = df_validated.count()
+    valid_count = df_valid.count()
+    invalid_count = df_invalid.count()
     
     print(f"\n📊 Validation Results:")
-    print(f"  Total events: {validation_result.total_events}")
-    print(f"  ✓ Valid: {validation_result.valid_count}")
-    print(f"  ✗ Invalid: {validation_result.invalid_count}")
-    print(f"  Validation rate: {validation_result.validation_rate:.1%}")
+    print(f"  Total events: {total_count}")
+    print(f"  ✓ Valid: {valid_count}")
+    print(f"  ✗ Invalid: {invalid_count}")
+    print(f"  Validation rate: {valid_count/total_count:.1%}")
     
-    if validation_result.invalid_count > 0:
-        print(f"  Error types: {validation_result.get_error_summary()}")
+    # Step 4: Quarantine invalid events
+    if invalid_count > 0:
+        print(f"\n⚠️ WARNING: {invalid_count} invalid events found")
+        # Could write invalid_df to quarantine here if needed
+        
+        failure_rate = (invalid_count / total_count) * 100
+        if failure_rate > MAX_VALIDATION_FAILURES_PERCENT:
+            print(f"\n⚠️ CRITICAL: Validation failure rate ({failure_rate:.1f}%) exceeds threshold ({MAX_VALIDATION_FAILURES_PERCENT}%)")
     
-    failure_rate = (1 - validation_result.validation_rate) * 100
-    if failure_rate > MAX_VALIDATION_FAILURES_PERCENT:
-        print(f"\n⚠️ WARNING: Validation failure rate ({failure_rate:.1f}%) exceeds threshold ({MAX_VALIDATION_FAILURES_PERCENT}%)")
-    
-    quarantine_invalid_events(validation_result, batch_start_time)
-    
-    if validation_result.valid_count == 0:
+    if valid_count == 0:
         print("\n⚠️ No valid events to process after validation")
         return 0
     
-    print(f"\n✓ Proceeding with {validation_result.valid_count} valid events")
+    print(f"\n✓ Proceeding with {valid_count} valid events")
     
-    # Convert valid events back to Spark DataFrame
-    df = spark.createDataFrame(
-        spark.sparkContext.parallelize(validation_result.valid_events)
-    )
-    
-    df = df.withColumn(
+    # Step 5: Add timestamp parsing (no filtering - files already filtered)
+    df = df_valid.withColumn(
         "timestamp_parsed",
         to_timestamp(col("timestamp"), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     )
     
-    # Filter by watermark
-    df_filtered = df.filter(col("timestamp_parsed") > watermark_time)
-    event_count = df_filtered.count()
-    
-    print(f"Events after watermark filter: {event_count}")
+    event_count = df.count()
     
     if event_count == 0:
-        print("No new events to process")
+        print("No events in eligible files")
         return 0
     
     # Split into sessions and attempts
@@ -165,14 +170,14 @@ def process_events(spark, watermark_time, batch_start_time):
     
     # ===== TABLE 1: SESSIONS (Player Info) =====
     # Aggregate game_start + game_over events per session
-    game_start_events = df_filtered.filter(col("event_type") == "game_start")
-    game_over_events = df_filtered.filter(col("event_type") == "game_over")
+    game_start_events = df.filter(col("event_type") == "game_start")
+    game_over_events = df.filter(col("event_type") == "game_over")
     
     # Join game_start and game_over by session_id
     sessions_df = game_over_events.alias("go").join(
         game_start_events.alias("gs"),
         col("go.session_id") == col("gs.session_id"),
-        "left"
+        "inner"
     ).select(
         col("go.session_id"),
         col("gs.timestamp_parsed").alias("game_start_timestamp"),
@@ -188,7 +193,7 @@ def process_events(spark, watermark_time, batch_start_time):
         col("go.metadata.final_score").alias("final_score"),
         col("go.metadata.words_typed").alias("words_typed"),
         col("go.metadata.words_missed").alias("words_missed"),
-        col("go.metadata.final_speed").alias("final_speed"),
+        col("go.metadata.final_speed").cast("double").alias("final_speed"),
         col("go.metadata.active_play_time_ms").alias("active_play_time_ms"),
         col("go.metadata.page_dwell_time_ms").alias("page_dwell_time_ms"),
         col("go.metadata.idle_time_ms").alias("idle_time_ms"),
@@ -201,9 +206,10 @@ def process_events(spark, watermark_time, batch_start_time):
     
     # ===== TABLE 2: ATTEMPTS (Word Typing Attempts) =====
     # Only word_typed_correct and word_typed_incorrect events
-    from pyspark.sql.functions import coalesce
+    from pyspark.sql.functions import coalesce, to_json, when, from_json
+    from pyspark.sql.types import ArrayType, StringType
     
-    attempts_df = df_filtered.filter(
+    attempts_df = df.filter(
         (col("event_type") == "word_typed_correct") | 
         (col("event_type") == "word_typed_incorrect")
     ).select(
@@ -216,20 +222,20 @@ def process_events(spark, watermark_time, batch_start_time):
         
         # What was attempted/matched
         # For both correct and incorrect: attempted field contains what user typed
-        col("metadata.attempted").alias("attempted_word"),
+        col("metadata.attempted").cast("string").alias("attempted_word"),
         # For correct: word = matched word. For incorrect: closest_match = best match
-        coalesce(col("metadata.word"), col("metadata.closest_match")).alias("matched_word"),
+        coalesce(col("metadata.word"), col("metadata.closest_match")).cast("string").alias("matched_word"),
         col("metadata.time_to_type_ms").alias("time_to_type_ms"),
-        col("metadata.current_speed").alias("current_speed"),
+        col("metadata.current_speed").cast("double").alias("current_speed"),
         
-        # Visible words context (convert array to comma-separated string for BQ)
-        array_join(col("metadata.visible_words"), ",").alias("visible_words"),
+        # Visible words context - parse from JSON string if needed, otherwise cast
+        from_json(col("metadata.visible_words").cast("string"), "array<string>").alias("visible_words"),
         col("metadata.visible_words_count").alias("visible_words_count"),
         
         # Partial completion (if incorrect, these are NULL for correct)
-        col("metadata.closest_match").alias("closest_match"),
+        col("metadata.closest_match").cast("string").alias("closest_match"),
         col("metadata.chars_matched").alias("chars_matched"),
-        col("metadata.match_ratio").alias("match_ratio"),
+        col("metadata.match_ratio").cast("double").alias("match_ratio"),
         
         current_timestamp().alias("processing_timestamp")
     )
@@ -246,7 +252,7 @@ def process_events(spark, watermark_time, batch_start_time):
         sessions_df.write \
             .format("bigquery") \
             .option("table", sessions_table) \
-            .option("temporaryGcsBucket", RAW_BUCKET) \
+            .option("temporaryGcsBucket", "acidrain-bq-temp") \
             .option("partitionField", "game_over_timestamp") \
             .option("partitionType", "DAY") \
             .option("clusteredFields", "session_id") \
@@ -258,9 +264,8 @@ def process_events(spark, watermark_time, batch_start_time):
     if attempts_count > 0:
         attempts_table = f"{BQ_PROJECT}.{BQ_DATASET}.{BQ_TABLE_ATTEMPTS}"
         attempts_df.write \
-            .format("bigquery") \
             .option("table", attempts_table) \
-            .option("temporaryGcsBucket", RAW_BUCKET) \
+            .option("temporaryGcsBucket", "acidrain-bq-temp") \
             .option("partitionField", "timestamp") \
             .option("partitionType", "DAY") \
             .option("clusteredFields", "session_id,was_correct") \

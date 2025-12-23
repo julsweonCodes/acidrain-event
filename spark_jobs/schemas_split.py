@@ -51,8 +51,8 @@ attempts_schema = StructType([
     StructField("time_to_type_ms", IntegerType(), True),  # If correct
     StructField("current_speed", FloatType(), True),    # Speed at attempt
     
-    # Context: All words visible on screen (comma-separated string for BigQuery)
-    StructField("visible_words", StringType(), True),
+    # Context: All words visible on screen (native array)
+    StructField("visible_words", ArrayType(StringType()), True),
     StructField("visible_words_count", IntegerType(), True),
     
     # Partial completion metrics (if incorrect)
