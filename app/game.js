@@ -125,12 +125,6 @@ class AcidRainGame {
             // 🔹 하지만 조합 중이면 여기서 종료 (attempt 판단 금지)
             if (this.isComposing) return;
 
-            // 🔹 submit 직후 cleanup
-            if (this.justSubmitted) {
-                this.hiddenInput.value = '';
-                this.justSubmitted = false;
-                return;
-            }
 
             // 🔹 typing 시작 시간
             if (newValue.length === 1 && !this.wordStartTime) {
@@ -518,11 +512,9 @@ class AcidRainGame {
             );
         }
 
-        // ✅ Reset input state AFTER handling attempt
         this.currentInput = '';
         this.hiddenInput.value = '';
         this.wordStartTime = null;
-        this.lastHighlightedWord = null;
         this.updateInputDisplay();
     }
 
