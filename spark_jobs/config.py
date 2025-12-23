@@ -18,7 +18,7 @@ BQ_TABLE_ATTEMPTS = "attempts"  # Word attempts (one row per typing attempt)
 SPARK_APP_NAME = "acidrain-batch-processor"
 
 # Processing
-BATCH_INTERVAL_HOURS = 6
+BATCH_INTERVAL_HOURS = 3
 MAX_PARTITION_LOOKBACK_DAYS = 7  # How far back to scan for new files
 
 # Validation
