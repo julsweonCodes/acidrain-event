@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Acid Rain Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>📊 Acid Rain Dashboard</h1>
+
+  <div id="stats">
+    <p>Total Sessions: <span id="sessions">-</span></p>
+    <p>Total Attempts: <span id="attempts">-</span></p>
+    <p>Accuracy: <span id="accuracy">-</span></p>
+  </div>
+
+  <script>
+    fetch("https://us-central1-acidrain-event.cloudfunctions.net/acidrain-dashboard-api")
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById("sessions").innerText = data.total_sessions;
+        document.getElementById("attempts").innerText = data.total_attempts;
+        document.getElementById("accuracy").innerText = data.accuracy;
+      })
+      .catch(err => console.error(err));
+  </script>
+</body>
+</html>
