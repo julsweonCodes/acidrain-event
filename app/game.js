@@ -513,6 +513,7 @@ class AcidRainGame {
         }
 
         this.currentInput = '';
+        this.lastHighlightedWord = null;
         this.hiddenInput.value = '';
         this.wordStartTime = null;
         this.updateInputDisplay();

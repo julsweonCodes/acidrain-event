@@ -1,0 +1,28 @@
+{
+  "pysparkBatch": {
+    "mainPythonFileUri": "gs://acidrain-events-raw/spark_jobs/process_batch_split.py",
+    "pythonFileUris": [
+      "gs://acidrain-events-raw/spark_jobs/config.py",
+      "gs://acidrain-events-raw/spark_jobs/schemas_split.py",
+      "gs://acidrain-events-raw/spark_jobs/watermark.py",
+      "gs://acidrain-events-raw/spark_jobs/validation.py"
+    ],
+    "jarFileUris": [
+      "gs://spark-lib/bigquery/spark-3.3-bigquery-0.37.0.jar"
+    ]
+  },
+  "runtime_config": {
+    "properties": {
+        "spark.executor.memory": "4g",
+        "spark.executor.cores": "4",
+        "spark.sql.sources.partitionOverwriteMode": "dynamic"
+    }
+  },
+
+  "environmentConfig": {
+    "executionConfig": {
+      "serviceAccount": "acidrain-batch-sa@acidrain-event.iam.gserviceaccount.com",
+      "subnetworkUri": "projects/acidrain-event/regions/us-central1/subnetworks/default"
+    }
+  }
+}
