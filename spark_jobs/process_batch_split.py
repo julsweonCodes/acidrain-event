@@ -21,7 +21,7 @@ import json
 import uuid
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, to_timestamp, current_timestamp, lit, array_join,
+from pyspark.sql.functions import col, to_timestamp, current_timestamp, lit, array_join, round
 
 from config import (
     RAW_BUCKET, RAW_PREFIX, QUARANTINE_PREFIX,
@@ -209,6 +209,8 @@ def process_events(spark, watermark_time, batch_start_time):
     from pyspark.sql.functions import coalesce, to_json, when, from_json
     from pyspark.sql.types import ArrayType, StringType
     
+    from pyspark.sql.functions import to_json, round
+
     attempts_df = df.filter(
         (col("event_type") == "word_typed_correct") |
         (col("event_type") == "word_typed_incorrect")
@@ -220,16 +222,17 @@ def process_events(spark, watermark_time, batch_start_time):
         (col("event_type") == "word_typed_correct").alias("was_correct"),
 
         col("metadata.attempted").cast("string").alias("attempted_word"),
-        coalesce(col("metadata.word"), col("metadata.closest_match"))
-            .cast("string")
-            .alias("matched_word"),
+        col("metadata.word").cast("string").alias("matched_word"),
 
         col("metadata.time_to_type_ms").cast("int").alias("time_to_type_ms"),
         round(col("metadata.current_speed").cast("double"), 1).alias("current_speed"),
-        col("metadata.visible_words").alias("visible_words"),
-        col("metadata.visible_words_count").cast("long").alias("visible_words_count"),
+
+        # ⭐ 핵심 수정
+        to_json(col("metadata.visible_words")).alias("visible_words"),
+
+        col("metadata.visible_words_count").cast("int").alias("visible_words_count"),
         col("metadata.closest_match").cast("string").alias("closest_match"),
-        col("metadata.chars_matched").cast("long").alias("chars_matched"),
+        col("metadata.chars_matched").cast("int").alias("chars_matched"),
         col("metadata.match_ratio").cast("double").alias("match_ratio"),
         col("metadata.intended_word").cast("string").alias("intended_word"),
 
