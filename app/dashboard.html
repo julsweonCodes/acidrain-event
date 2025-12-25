@@ -20,7 +20,7 @@
           <thead>
             <tr>
               <th>Rank</th>
-              <th>Player</th>
+              <th>Date</th>
               <th>Score</th>
             </tr>
           </thead>
@@ -56,7 +56,30 @@
       tbody.innerHTML = "";
       topRankings.forEach((row, idx) => {
         const tr = document.createElement("tr");
-        tr.innerHTML = `<td>${idx + 1}</td><td>${row.player_name || row.user_id || "-"}</td><td>${row.final_score}</td>`;
+        // Use game_start_timestamp as date value
+        let dateStr = "-";
+        let dateVal = row.game_start_timestamp;
+        if (dateVal) {
+          // Accept both ISO and seconds/milliseconds
+          let d = new Date(dateVal);
+          if (typeof dateVal === 'number' && dateVal > 10000000000) {
+            // If it's a timestamp in ms
+            d = new Date(dateVal);
+          } else if (typeof dateVal === 'number') {
+            // If it's a timestamp in seconds
+            d = new Date(dateVal * 1000);
+          } else if (typeof dateVal === 'string' && !isNaN(Number(dateVal))) {
+            // Numeric string
+            const numVal = Number(dateVal);
+            d = numVal > 10000000000 ? new Date(numVal) : new Date(numVal * 1000);
+          }
+          if (!isNaN(d)) {
+            const month = d.toLocaleString('en-US', { month: 'short' });
+            const day = d.getDate();
+            dateStr = `${month} ${day}`;
+          }
+        }
+        tr.innerHTML = `<td>${idx + 1}</td><td>${dateStr}</td><td>${row.final_score}</td>`;
         tbody.appendChild(tr);
       });
     }
@@ -66,9 +89,14 @@
       const enStats = wordStats.filter(w => w.lang === 'en');
       const koStats = wordStats.filter(w => w.lang === 'ko');
       function makeTable(stats, lang) {
-        let html = `<table class="dashboard-table-inner"><thead><tr><th>Word</th><th>Tries</th><th>평균 정확도</th></tr></thead><tbody>`;
+        let html = `<table class=\"dashboard-table-inner\"><thead><tr><th>Word</th><th>Tries</th><th>Avg Accuracy</th></tr></thead><tbody>`;
         stats.forEach(row => {
-          html += `<tr><td>${row.intended_word}</td><td>${row.cnt}</td><td>${(row.avg_match_ratio * 100).toFixed(1)}%</td></tr>`;
+          // Wrap long words
+          let word = row.intended_word;
+          if (word && word.length > 16) {
+            word = word.replace(/(.{12,18})(?!$)/g, "$1<br>");
+          }
+          html += `<tr><td style=\"word-break:break-all;\">${word}</td><td>${row.cnt}</td><td>${(row.avg_match_ratio * 100).toFixed(1)}%</td></tr>`;
         });
         html += `</tbody></table>`;
         return html;
