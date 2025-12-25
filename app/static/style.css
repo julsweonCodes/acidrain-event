@@ -1,3 +1,87 @@
+/* ===== DASHBOARD TABLE LAYOUT ===== */
+.dashboard-table {
+    display: flex;
+    flex-direction: row;
+    gap: 32px;
+    justify-content: center;
+    margin: 40px 0 0 0;
+}
+.dashboard-cell {
+    background: rgba(0,0,0,0.18);
+    border-radius: 12px;
+    padding: 24px 18px 18px 18px;
+    min-width: 420px;
+    max-width: 600px;
+    min-height: 420px;
+    box-shadow: 0 2px 8px 0 rgba(0,0,0,0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+}
+.dashboard-table-inner {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 12px;
+    font-size: 15px;
+    min-height: 280px;
+    max-height: 340px;
+    overflow-y: auto;
+    display: block;
+}
+.dashboard-table-inner thead, .dashboard-table-inner tbody {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+}
+.dashboard-table-inner tbody {
+    overflow-y: auto;
+    max-height: 300px;
+    display: block;
+}
+.dashboard-table-inner tr {
+    width: 100%;
+    display: table;
+    table-layout: fixed;
+}
+.dashboard-table-inner th, .dashboard-table-inner td {
+    border-bottom: 1px solid rgba(255,255,255,0.12);
+    padding: 6px 10px;
+    text-align: left;
+}
+.dashboard-table-inner th {
+    font-size: 13px;
+    opacity: 0.8;
+    font-weight: 600;
+}
+.dashboard-table-inner tr:last-child td {
+    border-bottom: none;
+}
+
+/* ===== TABS ===== */
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.tab-btn {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    color: #fff;
+    padding: 6px 18px;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    font-size: 15px;
+    outline: none;
+    transition: background 0.2s;
+    font-family: 'Courier New', monospace;
+}
+.tab-btn.active, .tab-btn:hover {
+    background: rgba(255,255,255,0.22);
+    color: #fff;
+}
+.word-stats-tab {
+    min-height: 120px;
+}
 /* ===== RESET ===== */
 * {
     margin: 0;
