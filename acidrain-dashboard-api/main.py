@@ -5,32 +5,59 @@ PROJECT_ID = "acidrain-event"
 DATASET = "acidrain"
 
 def get_dashboard_data(request):
+    # --- CORS preflight ---
+    if request.method == "OPTIONS":
+        return (
+            "",
+            204,
+            {
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+            },
+        )
+
     client = bigquery.Client(project=PROJECT_ID)
 
-    query = f"""
-    SELECT
-      COUNT(DISTINCT session_id) AS total_sessions,
-      COUNT(*) AS total_attempts,
-      COUNTIF(was_correct = true) AS correct_attempts
-    FROM `{PROJECT_ID}.{DATASET}.attempts`
-    WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+    # --- Query 1: Top rankings ---
+    top_rankings_query = f"""
+    SELECT *
+    FROM `{PROJECT_ID}.{DATASET}.sessions`
+    ORDER BY final_score DESC
+    LIMIT 10
     """
 
-    job = client.query(query)
-    row = list(job.result())[0]
+    # --- Query 2: Word statistics ---
+    word_stats_query = f"""
+    SELECT
+      b.lang,
+      a.intended_word,
+      COUNT(a.intended_word) AS cnt,
+      AVG(a.match_ratio) AS avg_match_ratio
+    FROM `{PROJECT_ID}.{DATASET}.attempts` a
+    INNER JOIN `{PROJECT_ID}.{DATASET}.word_catalog` b
+      ON a.intended_word = b.word
+    WHERE a.intended_word IS NOT NULL
+    GROUP BY a.intended_word, b.lang
+    ORDER BY b.lang, cnt DESC
+    """
+
+    top_rankings_job = client.query(top_rankings_query)
+    word_stats_job = client.query(word_stats_query)
+
+    top_rankings = [dict(row) for row in top_rankings_job.result()]
+    word_stats = [dict(row) for row in word_stats_job.result()]
 
     response = {
-        "total_sessions": row.total_sessions,
-        "total_attempts": row.total_attempts,
-        "correct_attempts": row.correct_attempts,
-        "accuracy": (
-            round(row.correct_attempts / row.total_attempts, 3)
-            if row.total_attempts > 0 else 0
-        )
+        "top_rankings": top_rankings,
+        "word_stats": word_stats,
     }
 
     return (
         json.dumps(response),
         200,
-        {"Content-Type": "application/json"}
+        {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*",
+        },
     )
