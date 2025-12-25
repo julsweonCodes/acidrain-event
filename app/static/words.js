@@ -21,6 +21,17 @@ const WORD_LIST = [
     "database", "query", "index", "schema", "table",
     "pipeline", "stream", "buffer", "cache", "token",
     "session", "cookie", "header", "payload", "response",
+    // Added more medium-difficulty words
+    "cluster", "replica", "shard", "trigger", "cursor",
+    "archive", "extract", "transform", "load", "mapping",
+    "rollback", "commit", "isolate", "timeout", "refresh",
+    "monitor", "logging", "handler", "matcher", "pattern",
+    "sandbox", "gateway", "adapter", "resolver", "context",
+    "decimal", "integer", "float", "binary", "syntax",
+    "compile", "execute", "runtime", "session", "request",
+    "storage", "pointer", "segment", "virtual", "literal",
+    "default", "primary", "foreign", "unique", "nullable",
+    "cascade", "trigger", "atomic", "static", "dynamic",
     
     // Longer challenging words
     "authentication", "authorization", "middleware", "configuration",
