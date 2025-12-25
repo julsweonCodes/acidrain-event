@@ -1,3 +1,7 @@
+.dashboard-table-inner td {
+    word-break: break-word;
+    line-height: 1.3;
+}
 /* ===== DASHBOARD TABLE LAYOUT ===== */
 .dashboard-table {
     display: flex;
