@@ -4,11 +4,136 @@ A multilingual typing game (English/Korean) that generates behavioral event data
 
 ## Features
 
-- **Bilingual Support**: English and Korean (한국어) with proper IME handling
-- **Event Tracking**: Session-based analytics with 6 event types
-- **Stateless Ingestion**: Append-only, gzip-compressed JSONL storage
-- **Geographic Context**: Automatic country/region/city detection
-- **Immutable Data Lake**: Date-partitioned raw zone for Spark processing
+# AcidRain Event Platform
+
+## Overview
+AcidRain Event is a cloud-native event processing and analytics platform built on Google Cloud Platform. It powers a real-time typing game and dashboard, ingesting, processing, and visualizing user events with scalable serverless infrastructure.
+
+## Architecture
+
+```
+┌───────────────┐
+│   Browser     │
+│  (JS App)     │
+│ - Typing Game │
+│ - Dashboard   │
+└───────┬───────┘
+  │ HTTP
+  ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        Google Cloud Platform                      │
+│                                                                   │
+│   ┌─────────────────────────────┐                                │
+│   │ Cloud Run                   │                                │
+│   │ Event Ingest API            │                                │
+│   │                             │                                │
+│   │ - validate event            │                                │
+│   │ - enrich metadata           │                                │
+│   └───────────┬─────────────────┘                                │
+│               │ write (JSON)                                      │
+│               ▼                                                   │
+│   ┌─────────────────────────────┐                                │
+│   │ Google Cloud Storage        │                                │
+│   │ Raw Events Bucket           │                                │
+│   │                             │                                │
+│   │ raw/YYYY/MM/DD/*.json       │                                │
+│   └───────────┬─────────────────┘                                │
+│               │                                                   │
+│     (scheduled trigger)                                           │
+│               │                                                   │
+│   ┌───────────▼───────────┐        ┌─────────────────────────────┐│
+│   │ Cloud Scheduler        │ ...... │ Cloud Logging / Monitoring  ││
+│   │ (Cron)                 │        └─────────────────────────────┘│
+│   └───────────┬───────────┘                                      │
+│               │ HTTP                                              │
+│               ▼                                                   │
+│   ┌─────────────────────────────┐                                │
+│   │ Cloud Run / Cloud Function  │                                │
+│   │ Batch Trigger API           │                                │
+│   │                             │                                │
+│   │ - create Dataproc batch     │                                │
+│   │ - read watermark            │                                │
+│   └───────────┬─────────────────┘                                │
+│               │ create batch                                    │
+│               ▼                                                   │
+│   ┌─────────────────────────────┐                                │
+│   │ Dataproc Serverless         │                                │
+│   │ (Spark)                     │                                │
+│   │                             │                                │
+│   │ - read raw events (GCS)     │                                │
+│   │ - validate / transform      │                                │
+│   │ - watermark-based ETL       │                                │
+│   └───────────┬─────────────────┘                                │
+│               │ append                                            │
+│               ▼                                                   │
+│   ┌─────────────────────────────┐                                │
+│   │ BigQuery                    │                                │
+│   │                             │                                │
+│   │ - sessions table            │                                │
+│   │ - attempts table            │                                │
+│   │ - words dimension           │                                │
+│   └───────────┬─────────────────┘                                │
+│               │ SQL                                               │
+│               ▼                                                   │
+│   ┌─────────────────────────────┐                                │
+│   │ Cloud Run                   │                                │
+│   │ Dashboard API               │                                │
+│   │                             │                                │
+│   │ - query BigQuery            │                                │
+│   │ - aggregate metrics         │                                │
+│   └───────────┬─────────────────┘                                │
+│               │ JSON                                              │
+│               ▼                                                   │
+│   ┌─────────────────────────────┐                                │
+│   │ Dashboard UI                │                                │
+│   │ (HTML / JS)                 │                                │
+│   └─────────────────────────────┘                                │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────────┘
+
+CI / CD
+=======
+┌────────────┐     ┌──────────────┐     ┌──────────────────────┐
+│   GitHub   │ --> │ Cloud Build  │ --> │ Cloud Run / GCS Deploy │
+│ (main)     │     │ Triggers     │     │ + Spark Job Upload    │
+└────────────┘     └──────────────┘     └──────────────────────┘
+```
+
+## Components
+
+- **Frontend (app/):**
+  - Typing game and dashboard UI (HTML/JS/CSS)
+- **Event Ingest API (main.py):**
+  - Validates and enriches incoming events
+  - Deployable to Cloud Run
+- **Batch Trigger API (acidrain-batch-trigger/):**
+  - Schedules and triggers Dataproc Spark jobs
+  - Reads watermark for batch processing
+- **Dashboard API (acidrain-dashboard-api/):**
+  - Aggregates and serves metrics from BigQuery
+- **Spark Jobs (spark_jobs/):**
+  - ETL pipeline for event validation, transformation, and loading to BigQuery
+- **Infrastructure & Deployment:**
+  - `Dockerfile`, `app.yaml`, deployment scripts for App Engine and Cloud Run
+  - Cloud Scheduler for batch triggers
+  - Cloud Build for CI/CD
+
+## Data Flow
+1. **User events** are sent from the browser to the Event Ingest API.
+2. **Events** are validated and stored as JSON in Google Cloud Storage.
+3. **Cloud Scheduler** triggers batch jobs via the Batch Trigger API.
+4. **Dataproc Spark jobs** process raw events, validate, transform, and load to BigQuery.
+5. **Dashboard API** queries BigQuery for metrics and serves them to the dashboard UI.
+
+## Project Structure
+
+- `main.py`                — Event Ingest API
+- `acidrain-batch-trigger/` — Batch Trigger API
+- `acidrain-dashboard-api/` — Dashboard API
+- `spark_jobs/`            — Spark ETL jobs
+- `app/`                   — Frontend (HTML/JS/CSS)
+- `Dockerfile`, `app.yaml` — Deployment configuration
+- `deploy-cloudrun.sh`, `deploy-appengine.sh` — Deployment scripts
 
 ## Architecture
 
@@ -17,74 +142,6 @@ Frontend (HTML/JS) → FastAPI → GCS (raw zone)
                                 ↓
                     gzip-compressed JSONL
                     raw/YYYY/MM/DD/events_{uuid}.json.gz
-```
-
-## Local Development
-
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Run without GCS (local testing)
-```bash
-# Events will be logged to console only
-python main.py
-```
-
-Open: http://localhost:8080
-
-### 3. Run with GCS (requires credentials)
-```bash
-# Set up GCS credentials
-export GOOGLE_APPLICATION_CREDENTIALS="path/to/service-account-key.json"
-export GCS_BUCKET_NAME="your-bucket-name"
-export ENABLE_GCS="true"
-
-python main.py
-```
-
-## Deploy to Google Cloud
-
-### Cloud Run (Recommended)
-
-```bash
-# Build and deploy
-gcloud run deploy acidrain-event-collector \
-  --source . \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated \
-  --set-env-vars GCS_BUCKET_NAME=your-bucket-name,ENABLE_GCS=true
-```
-
-## GCS Setup
-
-### Create Bucket
-```bash
-# Use 'us' multi-region for better redundancy
-gsutil mb -l us gs://acidrain-events-raw
-```
-
-### File Structure (Immutable Raw Zone)
-```
-gs://acidrain-events-raw/
-└── raw/
-    └── 2025/
-        └── 12/
-            └── 21/
-                ├── events_abc123.json.gz  (3.45 KB)
-                ├── events_def456.json.gz  (2.89 KB)
-                └── events_xyz789.json.gz  (4.12 KB)
-```
-
-**Format**: gzip-compressed newline-delimited JSON (`.json.gz`)  
-**Partitioning**: UTC-based daily partitions (`YYYY/MM/DD`)  
-**Naming**: `events_{uuid}.json.gz`
-
-### Grant Service Account Access
-```bash
-gsutil iam ch serviceAccount:YOUR-SA@PROJECT.iam.gserviceaccount.com:objectCreator gs://acidrain-events-raw
 ```
 
 ## Event Schema
@@ -112,60 +169,6 @@ gsutil iam ch serviceAccount:YOUR-SA@PROJECT.iam.gserviceaccount.com:objectCreat
 }
 ```
 
-### Session-Level Attributes
-`web_context` is collected **once per session** (browser page load) and reused for all events:
-- `timezone`: Browser timezone (e.g., `Asia/Seoul`)
-- `language`: Browser language (e.g., `en-US`, `ko-KR`)
-- `country`, `region`: Added by backend from Cloud Run headers
-
-**Design Principle**: Enables session-level enrichment in Spark, reduces data duplication
-
-### Event Types
-1. `game_start` - Game begins
-2. `word_spawn` - Word appears on screen
-3. `word_typed_correct` - User types word correctly
-4. `word_typed_incorrect` - User types wrong word
-5. `word_missed` - Word reaches bottom (game over trigger)
-6. `game_over` - Game ends with final stats
-
-## Data Processing
-
-### Read with Spark
-```python
-# Read gzip-compressed JSONL directly
-df = spark.read.json("gs://acidrain-events-raw/raw/2025/12/21/*.json.gz")
-
-# Session-level aggregation example
-session_stats = df.groupBy("session_id", "web_context.country") \
-    .agg(
-        count("*").alias("total_events"),
-        countDistinct("event_type").alias("event_types"),
-        max("timestamp").alias("last_activity")
-    )
-```
-
-### BigQuery External Table
-```sql
-CREATE EXTERNAL TABLE `project.dataset.acidrain_raw`
-OPTIONS (
-  format = 'NEWLINE_DELIMITED_JSON',
-  compression = 'GZIP',
-  uris = ['gs://acidrain-events-raw/raw/*/*.json.gz']
-);
-```
-
-## Game Features
-
-### Language Support
-- **English**: 195 unique words (technical terms, long words, loanwords)
-- **Korean**: 350+ words (2-4 characters, single words only, proper IME composition)
-
-### Gameplay
-- 90-second timer
-- Progressive difficulty (speed increases every 5 seconds)
-- No duplicate words per session
-- Case-insensitive matching
-- Real-time score tracking
 
 ## API Endpoints
 
